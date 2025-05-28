@@ -60,32 +60,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className={cn(
-      "bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64"
+      "bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex-shrink-0",
+      "fixed inset-y-0 left-0 z-50 lg:relative lg:translate-x-0",
+      isCollapsed ? "w-16 -translate-x-full lg:translate-x-0" : "w-64 translate-x-0"
     )}>
-      <nav className="p-4 space-y-2">
-        {filteredItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeSection === item.id;
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => onSectionChange(item.id)}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                isActive 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              )}
-              title={isCollapsed ? item.label : undefined}
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              {!isCollapsed && <span>{item.label}</span>}
-            </button>
-          );
-        })}
-      </nav>
+      <div className="h-full overflow-y-auto">
+        <nav className="p-2 sm:p-4 space-y-1 sm:space-y-2">
+          {filteredItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSectionChange(item.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-2 sm:px-3 py-2 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors",
+                  isActive 
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                )}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
     </aside>
   );
 };

@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -97,5 +98,42 @@
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    html {
+      font-size: 14px;
+    }
+  }
+
+  /* Touch target optimization */
+  @media (max-width: 640px) {
+    button:not(.btn-icon), 
+    [role="button"]:not(.btn-icon),
+    input[type="button"],
+    input[type="submit"],
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Improved scrolling on mobile */
+  .scroll-smooth {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent zoom on input focus on iOS */
+  @media screen and (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
 }

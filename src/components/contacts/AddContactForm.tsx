@@ -84,25 +84,25 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Contato</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl">Adicionar Novo Contato</DialogTitle>
+          <DialogDescription className="text-sm">
             Preencha as informações do contato abaixo
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nome Completo</FormLabel>
+                    <FormLabel className="text-sm">Nome Completo</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: João Silva" {...field} />
+                      <Input placeholder="Ex: João Silva" {...field} className="text-sm" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -114,9 +114,9 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className="text-sm">Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="joao@empresa.com" type="email" {...field} />
+                      <Input placeholder="joao@empresa.com" type="email" {...field} className="text-sm" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -128,9 +128,9 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Telefone</FormLabel>
+                    <FormLabel className="text-sm">Telefone</FormLabel>
                     <FormControl>
-                      <Input placeholder="(11) 99999-9999" {...field} />
+                      <Input placeholder="(11) 99999-9999" {...field} className="text-sm" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -142,9 +142,9 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
                 name="position"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cargo</FormLabel>
+                    <FormLabel className="text-sm">Cargo</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Desenvolvedor Senior" {...field} />
+                      <Input placeholder="Ex: Desenvolvedor Senior" {...field} className="text-sm" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -156,16 +156,16 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
                 name="department"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Departamento</FormLabel>
+                    <FormLabel className="text-sm">Departamento</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="text-sm">
                           <SelectValue placeholder="Selecione o departamento" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {departments.map((dept) => (
-                          <SelectItem key={dept} value={dept}>
+                          <SelectItem key={dept} value={dept} className="text-sm">
                             {dept}
                           </SelectItem>
                         ))}
@@ -181,9 +181,9 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
                 name="company"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Empresa</FormLabel>
+                    <FormLabel className="text-sm">Empresa</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Empresa Tecnologia Ltda" {...field} />
+                      <Input placeholder="Ex: Empresa Tecnologia Ltda" {...field} className="text-sm" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -194,15 +194,15 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-muted-foreground">Redes Sociais (Opcionais)</h4>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="linkedin"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>LinkedIn</FormLabel>
+                      <FormLabel className="text-sm">LinkedIn</FormLabel>
                       <FormControl>
-                        <Input placeholder="linkedin.com/in/joaosilva" {...field} />
+                        <Input placeholder="linkedin.com/in/joaosilva" {...field} className="text-sm" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -214,9 +214,9 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
                   name="whatsapp"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>WhatsApp</FormLabel>
+                      <FormLabel className="text-sm">WhatsApp</FormLabel>
                       <FormControl>
-                        <Input placeholder="11999999999" {...field} />
+                        <Input placeholder="11999999999" {...field} className="text-sm" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -227,10 +227,10 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
                   control={form.control}
                   name="website"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Website</FormLabel>
+                    <FormItem className="sm:col-span-2 lg:col-span-1">
+                      <FormLabel className="text-sm">Website</FormLabel>
                       <FormControl>
-                        <Input placeholder="joaosilva.dev" {...field} />
+                        <Input placeholder="joaosilva.dev" {...field} className="text-sm" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -239,11 +239,11 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="text-sm">
                 Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="text-sm">
                 Adicionar Contato
               </Button>
             </div>
