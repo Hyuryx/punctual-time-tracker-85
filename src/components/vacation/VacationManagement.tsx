@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,7 +57,7 @@ export const VacationManagement: React.FC = () => {
   const [showDialog, setShowDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>('create');
   const [formData, setFormData] = useState({
-    type: 'vacation',
+    type: 'vacation' as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity',
     startDate: '',
     endDate: '',
     reason: ''
@@ -132,7 +131,7 @@ export const VacationManagement: React.FC = () => {
   const handleNewRequest = () => {
     setSelectedRequest(null);
     setFormData({
-      type: 'vacation',
+      type: 'vacation' as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity',
       startDate: '',
       endDate: '',
       reason: ''
@@ -148,7 +147,7 @@ export const VacationManagement: React.FC = () => {
       const newRequest: VacationRequest = {
         id: Date.now().toString(),
         employeeName: user?.name || '',
-        type: formData.type as any,
+        type: formData.type,
         startDate: formData.startDate,
         endDate: formData.endDate,
         days,
@@ -164,7 +163,7 @@ export const VacationManagement: React.FC = () => {
     } else if (dialogMode === 'edit' && selectedRequest) {
       setRequests(prev => prev.map(req => 
         req.id === selectedRequest.id 
-          ? { ...req, ...formData, days }
+          ? { ...req, type: formData.type, startDate: formData.startDate, endDate: formData.endDate, reason: formData.reason, days }
           : req
       ));
       toast({
@@ -411,7 +410,7 @@ export const VacationManagement: React.FC = () => {
                   <Label htmlFor="type">Tipo</Label>
                   <Select 
                     value={formData.type} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity' }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
