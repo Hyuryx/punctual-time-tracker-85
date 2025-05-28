@@ -11,8 +11,9 @@ import {
   MapPin,
   FileText,
   Building,
-  UserCheck,
-  Timer
+  Timer,
+  Shield,
+  Clipboard
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -27,10 +28,12 @@ const sidebarItems: SidebarItem[] = [
   { id: 'clock-in', label: 'Registro de Ponto', icon: Clock },
   { id: 'timesheet', label: 'Espelho de Ponto', icon: Calendar },
   { id: 'overtime', label: 'Horas Extras', icon: Timer },
+  { id: 'vacation', label: 'Férias e Justificativas', icon: Clipboard },
   { id: 'employees', label: 'Funcionários', icon: Users, adminOnly: true },
   { id: 'reports', label: 'Relatórios', icon: FileText, adminOnly: true },
   { id: 'locations', label: 'Localizações', icon: MapPin, adminOnly: true },
   { id: 'companies', label: 'Empresas', icon: Building, adminOnly: true },
+  { id: 'audit', label: 'Auditoria', icon: Shield, adminOnly: true },
   { id: 'settings', label: 'Configurações', icon: Settings, adminOnly: true },
 ];
 

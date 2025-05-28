@@ -2,22 +2,28 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, MapPin, Camera } from 'lucide-react';
+import { Clock, MapPin, Camera, Wifi, WifiOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { PhotoCapture } from './PhotoCapture';
 
 interface TimeEntry {
   id: string;
   type: 'entry' | 'exit' | 'break_start' | 'break_end';
   timestamp: Date;
   location?: string;
+  photo?: string;
+  synced: boolean;
 }
 
 export const ClockInButton: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lastEntry, setLastEntry] = useState<TimeEntry | null>(null);
   const [location, setLocation] = useState<string>('Carregando...');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
+  const [pendingEntry, setPendingEntry] = useState<Omit<TimeEntry, 'photo' | 'synced'> | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,7 +31,17 @@ export const ClockInButton: React.FC = () => {
       setCurrentTime(new Date());
     }, 1000);
 
-    return () => clearInterval(timer);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -91,21 +107,42 @@ export const ClockInButton: React.FC = () => {
 
   const handleClockIn = () => {
     const action = getNextAction();
-    const newEntry: TimeEntry = {
+    const newEntry = {
       id: Date.now().toString(),
       type: action as any,
       timestamp: new Date(),
       location
     };
 
-    setLastEntry(newEntry);
-    
-    toast({
-      title: "Ponto registrado!",
-      description: `${getActionLabel(action)} registrada às ${format(newEntry.timestamp, 'HH:mm:ss')}`,
-    });
+    setPendingEntry(newEntry);
+    setShowPhotoCapture(true);
+  };
 
-    console.log('Ponto registrado:', newEntry);
+  const handlePhotoTaken = (photoData: string) => {
+    if (pendingEntry) {
+      const finalEntry: TimeEntry = {
+        ...pendingEntry,
+        photo: photoData,
+        synced: isOnline
+      };
+
+      setLastEntry(finalEntry);
+      setPendingEntry(null);
+
+      // Store in localStorage for offline sync
+      if (!isOnline) {
+        const offlineEntries = JSON.parse(localStorage.getItem('offlineEntries') || '[]');
+        offlineEntries.push(finalEntry);
+        localStorage.setItem('offlineEntries', JSON.stringify(offlineEntries));
+      }
+
+      toast({
+        title: "Ponto registrado!",
+        description: `${getActionLabel(finalEntry.type)} registrada às ${format(finalEntry.timestamp, 'HH:mm:ss')}${!isOnline ? ' (será sincronizado quando online)' : ''}`,
+      });
+
+      console.log('Ponto registrado:', finalEntry);
+    }
   };
 
   const nextAction = getNextAction();
@@ -118,6 +155,19 @@ export const ClockInButton: React.FC = () => {
           <CardDescription>
             {format(currentTime, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </CardDescription>
+          <div className="flex justify-center">
+            {isOnline ? (
+              <div className="flex items-center gap-2 text-green-600">
+                <Wifi className="h-4 w-4" />
+                <span className="text-sm">Online</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-orange-600">
+                <WifiOff className="h-4 w-4" />
+                <span className="text-sm">Offline</span>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="text-center space-y-6">
           <div className="text-4xl font-mono font-bold">
@@ -138,11 +188,10 @@ export const ClockInButton: React.FC = () => {
             {getActionLabel(nextAction)}
           </Button>
 
-          <div className="flex justify-center gap-4 text-sm">
-            <Button variant="outline" size="sm">
-              <Camera className="mr-2 h-4 w-4" />
-              Foto de Confirmação
-            </Button>
+          <div className="text-xs text-muted-foreground">
+            <p>• Foto obrigatória para confirmação</p>
+            <p>• Localização GPS será registrada</p>
+            <p>• {isOnline ? 'Sincronização em tempo real' : 'Será sincronizado quando online'}</p>
           </div>
         </CardContent>
       </Card>
@@ -159,6 +208,25 @@ export const ClockInButton: React.FC = () => {
                 <p className="text-sm text-muted-foreground">
                   {format(lastEntry.timestamp, 'HH:mm:ss - dd/MM/yyyy')}
                 </p>
+                <div className="flex items-center gap-2 mt-1">
+                  {lastEntry.synced ? (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <Wifi className="h-3 w-3" />
+                      <span className="text-xs">Sincronizado</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-orange-600">
+                      <WifiOff className="h-3 w-3" />
+                      <span className="text-xs">Aguardando sincronização</span>
+                    </div>
+                  )}
+                  {lastEntry.photo && (
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <Camera className="h-3 w-3" />
+                      <span className="text-xs">Com foto</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Local:</p>
@@ -168,6 +236,15 @@ export const ClockInButton: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      <PhotoCapture
+        isOpen={showPhotoCapture}
+        onClose={() => {
+          setShowPhotoCapture(false);
+          setPendingEntry(null);
+        }}
+        onPhotoTaken={handlePhotoTaken}
+      />
     </div>
   );
 };
