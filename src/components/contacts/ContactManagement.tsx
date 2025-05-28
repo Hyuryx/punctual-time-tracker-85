@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,7 +22,7 @@ interface Contact {
 
 export const ContactManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('todos');
 
   const [contacts] = useState<Contact[]>([
     {
@@ -105,7 +104,7 @@ export const ContactManagement: React.FC = () => {
       contact.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.company.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesDepartment = !filterDepartment || contact.department === filterDepartment;
+    const matchesDepartment = filterDepartment === 'todos' || contact.department === filterDepartment;
     
     return matchesSearch && matchesDepartment;
   });
@@ -157,7 +156,7 @@ export const ContactManagement: React.FC = () => {
                   <SelectValue placeholder="Todos os departamentos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os departamentos</SelectItem>
+                  <SelectItem value="todos">Todos os departamentos</SelectItem>
                   {departments.map(dept => (
                     <SelectItem key={dept} value={dept}>
                       {dept}
@@ -172,7 +171,7 @@ export const ContactManagement: React.FC = () => {
                 variant="outline" 
                 onClick={() => {
                   setSearchTerm('');
-                  setFilterDepartment('');
+                  setFilterDepartment('todos');
                 }}
                 className="w-full"
               >
