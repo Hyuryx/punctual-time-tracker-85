@@ -124,10 +124,10 @@ export const ReportsManagement: React.FC = () => {
                   <SelectValue placeholder="Todos os funcionários" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os funcionários</SelectItem>
-                  <SelectItem value="1">João Silva</SelectItem>
-                  <SelectItem value="2">Maria Santos</SelectItem>
-                  <SelectItem value="3">Carlos Oliveira</SelectItem>
+                  <SelectItem value="todos">Todos os funcionários</SelectItem>
+                  <SelectItem value="joao-silva">João Silva</SelectItem>
+                  <SelectItem value="maria-santos">Maria Santos</SelectItem>
+                  <SelectItem value="carlos-oliveira">Carlos Oliveira</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -138,7 +138,7 @@ export const ReportsManagement: React.FC = () => {
                   <SelectValue placeholder="Todos os departamentos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os departamentos</SelectItem>
+                  <SelectItem value="todos">Todos os departamentos</SelectItem>
                   <SelectItem value="vendas">Vendas</SelectItem>
                   <SelectItem value="rh">RH</SelectItem>
                   <SelectItem value="ti">TI</SelectItem>
