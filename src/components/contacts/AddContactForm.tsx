@@ -65,7 +65,15 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({
   const onSubmit = (data: ContactFormData) => {
     const newContact: Contact = {
       id: Date.now().toString(),
-      ...data,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      department: data.department,
+      position: data.position,
+      company: data.company,
+      linkedin: data.linkedin,
+      whatsapp: data.whatsapp,
+      website: data.website,
     };
     onAddContact(newContact);
     form.reset();
