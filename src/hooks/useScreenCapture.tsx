@@ -9,7 +9,7 @@ export const useScreenCapture = () => {
       // Try to use the modern Screen Capture API if available
       if ('getDisplayMedia' in navigator.mediaDevices) {
         const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { mediaSource: 'screen' },
+          video: true,
           audio: false
         });
 
