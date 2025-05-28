@@ -27,8 +27,6 @@ interface TimeEntry {
   status: 'complete' | 'incomplete' | 'absent';
 }
 
-<lov-add-dependency>xlsx@latest</lov-add-dependency>
-
 export const TimesheetView: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState('2024-01');
   const [selectedEmployee, setSelectedEmployee] = useState('');
