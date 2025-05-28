@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { 
   Clock, 
@@ -13,7 +14,8 @@ import {
   Building,
   Timer,
   Shield,
-  Clipboard
+  Clipboard,
+  User
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -26,6 +28,7 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'clock-in', label: 'Registro de Ponto', icon: Clock },
+  { id: 'profile', label: 'Meu Perfil', icon: User, adminOnly: true },
   { id: 'timesheet', label: 'Espelho de Ponto', icon: Calendar },
   { id: 'overtime', label: 'Horas Extras', icon: Timer },
   { id: 'vacation', label: 'Férias e Justificativas', icon: Clipboard },
@@ -49,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed 
 }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const filteredItems = sidebarItems.filter(item => 
     !item.adminOnly || user?.role === 'admin'

@@ -1,13 +1,14 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Download, Clock, MapPin, Camera } from 'lucide-react';
+import { Calendar, Download, Clock, MapPin, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 interface TimeEntry {
   id: string;
@@ -21,71 +22,105 @@ interface TimeEntry {
   workedHours: string;
   overtime: string;
   location: string;
+  locationName?: string;
   hasPhoto: boolean;
   status: 'complete' | 'incomplete' | 'absent';
 }
 
+<lov-add-dependency>xlsx@latest</lov-add-dependency>
+
 export const TimesheetView: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState('2024-01');
   const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  const [timeEntries] = useState<TimeEntry[]>([
-    {
-      id: '1',
-      date: '2024-01-15',
-      entries: {
-        entry: '08:00',
-        breakStart: '12:00',
-        breakEnd: '13:00',
-        exit: '17:00'
-      },
-      workedHours: '8h 00m',
-      overtime: '0h 00m',
-      location: '-23.5505, -46.6333',
-      hasPhoto: true,
-      status: 'complete'
-    },
-    {
-      id: '2',
-      date: '2024-01-16',
-      entries: {
-        entry: '08:05',
-        breakStart: '12:00',
-        breakEnd: '13:00',
-        exit: '17:30'
-      },
-      workedHours: '8h 25m',
-      overtime: '0h 25m',
-      location: '-23.5505, -46.6333',
-      hasPhoto: true,
-      status: 'complete'
-    },
-    {
-      id: '3',
-      date: '2024-01-17',
-      entries: {
-        entry: '08:00',
-        breakStart: '12:00',
-        breakEnd: '13:00'
-      },
-      workedHours: '5h 00m',
-      overtime: '0h 00m',
-      location: '-23.5505, -46.6333',
-      hasPhoto: true,
-      status: 'incomplete'
-    },
-    {
-      id: '4',
-      date: '2024-01-18',
-      entries: {},
-      workedHours: '0h 00m',
-      overtime: '0h 00m',
-      location: '',
-      hasPhoto: false,
-      status: 'absent'
-    }
-  ]);
+  // Load real-time data from localStorage
+  useEffect(() => {
+    const loadTimeEntries = () => {
+      const entries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
+      const processedEntries: TimeEntry[] = [];
+
+      // Group entries by date
+      const entriesByDate: { [key: string]: any[] } = {};
+      entries.forEach((entry: any) => {
+        const date = new Date(entry.timestamp).toISOString().split('T')[0];
+        if (!entriesByDate[date]) entriesByDate[date] = [];
+        entriesByDate[date].push(entry);
+      });
+
+      // Process each date
+      Object.entries(entriesByDate).forEach(([date, dayEntries]) => {
+        const sortedEntries = dayEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        
+        const entryTimes: any = {};
+        let totalMinutes = 0;
+        let lastEntry: Date | null = null;
+
+        sortedEntries.forEach(entry => {
+          const time = new Date(entry.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          
+          switch (entry.type) {
+            case 'entry':
+              entryTimes.entry = time;
+              lastEntry = new Date(entry.timestamp);
+              break;
+            case 'break_start':
+              entryTimes.breakStart = time;
+              if (lastEntry) {
+                totalMinutes += (new Date(entry.timestamp).getTime() - lastEntry.getTime()) / (1000 * 60);
+                lastEntry = null;
+              }
+              break;
+            case 'break_end':
+              entryTimes.breakEnd = time;
+              lastEntry = new Date(entry.timestamp);
+              break;
+            case 'exit':
+              entryTimes.exit = time;
+              if (lastEntry) {
+                totalMinutes += (new Date(entry.timestamp).getTime() - lastEntry.getTime()) / (1000 * 60);
+                lastEntry = null;
+              }
+              break;
+          }
+        });
+
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = Math.floor(totalMinutes % 60);
+        const workedHours = `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+        
+        const overtimeMinutes = Math.max(0, totalMinutes - 540); // 540 = 9 hours
+        const overtimeHours = Math.floor(overtimeMinutes / 60);
+        const overtimeMins = Math.floor(overtimeMinutes % 60);
+        const overtime = `${overtimeHours}h ${overtimeMins.toString().padStart(2, '0')}m`;
+
+        const status = entryTimes.entry && entryTimes.exit ? 'complete' : 
+                      entryTimes.entry ? 'incomplete' : 'absent';
+
+        processedEntries.push({
+          id: date,
+          date,
+          entries: entryTimes,
+          workedHours,
+          overtime,
+          location: sortedEntries[0]?.location || '',
+          locationName: sortedEntries[0]?.locationName || '',
+          hasPhoto: false,
+          status
+        });
+      });
+
+      setTimeEntries(processedEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    };
+
+    loadTimeEntries();
+    
+    // Set up real-time sync
+    const interval = setInterval(loadTimeEntries, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const calculateTotals = () => {
     let totalWorked = 0;
@@ -135,8 +170,39 @@ export const TimesheetView: React.FC = () => {
     );
   };
 
+  const handleExportExcel = () => {
+    const data = timeEntries.map(entry => ({
+      'Data': new Date(entry.date).toLocaleDateString('pt-BR'),
+      'Entrada': entry.entries.entry || '-',
+      'Saída Almoço': entry.entries.breakStart || '-',
+      'Volta Almoço': entry.entries.breakEnd || '-',
+      'Saída': entry.entries.exit || '-',
+      'Horas Trabalhadas': entry.workedHours,
+      'Horas Extras': entry.overtime,
+      'Status': entry.status === 'complete' ? 'Completo' : entry.status === 'incomplete' ? 'Incompleto' : 'Ausente',
+      'Localização': entry.locationName || entry.location || '-'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Espelho de Ponto");
+    
+    XLSX.writeFile(wb, `espelho-ponto-${selectedMonth}.xlsx`);
+    
+    toast({
+      title: "Arquivo exportado!",
+      description: "O espelho de ponto foi exportado para Excel com sucesso.",
+    });
+  };
+
   const handleExportPDF = () => {
-    console.log('Exporting timesheet to PDF...');
+    // For PDF export, we'll use the browser's print functionality
+    window.print();
+    
+    toast({
+      title: "Exportando PDF...",
+      description: "Use a função de impressão do navegador para salvar como PDF.",
+    });
   };
 
   return (
@@ -145,13 +211,19 @@ export const TimesheetView: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Espelho de Ponto</h2>
           <p className="text-muted-foreground">
-            Visualize e exporte o registro detalhado de ponto
+            Visualize e exporte o registro detalhado de ponto (Sincronização em tempo real)
           </p>
         </div>
-        <Button onClick={handleExportPDF}>
-          <Download className="mr-2 h-4 w-4" />
-          Exportar PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleExportExcel} variant="outline">
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+          <Button onClick={handleExportPDF}>
+            <Download className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -236,7 +308,6 @@ export const TimesheetView: React.FC = () => {
                 <TableHead>Horas Extras</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Localização</TableHead>
-                <TableHead>Foto</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -259,24 +330,27 @@ export const TimesheetView: React.FC = () => {
                       {entry.workedHours}
                     </div>
                   </TableCell>
-                  <TableCell>{entry.overtime}</TableCell>
+                  <TableCell className="font-medium text-orange-600">
+                    {entry.overtime}
+                  </TableCell>
                   <TableCell>{getStatusBadge(entry.status)}</TableCell>
                   <TableCell>
-                    {entry.location && (
+                    {entry.locationName && (
                       <Button size="sm" variant="outline">
-                        <MapPin className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {entry.hasPhoto && (
-                      <Button size="sm" variant="outline">
-                        <Camera className="h-3 w-3" />
+                        <MapPin className="h-3 w-3 mr-1" />
+                        {entry.locationName.substring(0, 20)}...
                       </Button>
                     )}
                   </TableCell>
                 </TableRow>
               ))}
+              {timeEntries.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    Nenhum registro encontrado. Faça seu primeiro registro de ponto!
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

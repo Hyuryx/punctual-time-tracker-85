@@ -4,111 +4,77 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Plus, Eye, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Calendar, Plus, Eye, Edit, Trash, FileText } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 interface VacationRequest {
   id: string;
   employeeName: string;
+  type: 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity';
   startDate: string;
   endDate: string;
   days: number;
-  status: 'pending' | 'approved' | 'rejected';
   reason: string;
+  status: 'pending' | 'approved' | 'rejected';
   requestDate: string;
-}
-
-interface Justification {
-  id: string;
-  employeeName: string;
-  date: string;
-  type: 'absence' | 'late' | 'early_leave';
-  reason: string;
-  document?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  documents?: string[];
 }
 
 export const VacationManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'vacation' | 'justifications'>('vacation');
-  const [showDialog, setShowDialog] = useState(false);
-  const [dialogType, setDialogType] = useState<'vacation' | 'justification'>('vacation');
-  const { toast } = useToast();
-
-  const [vacationRequests] = useState<VacationRequest[]>([
+  const [requests, setRequests] = useState<VacationRequest[]>([
     {
       id: '1',
       employeeName: 'João Silva',
+      type: 'vacation',
       startDate: '2024-02-15',
-      endDate: '2024-02-25',
-      days: 10,
-      status: 'pending',
-      reason: 'Férias familiares',
-      requestDate: '2024-01-15'
-    },
-    {
-      id: '2',
-      employeeName: 'Maria Santos',
-      startDate: '2024-03-01',
-      endDate: '2024-03-15',
+      endDate: '2024-02-29',
       days: 15,
+      reason: 'Férias anuais - viagem em família',
       status: 'approved',
-      reason: 'Viagem de descanso',
-      requestDate: '2024-01-10'
-    }
-  ]);
-
-  const [justifications] = useState<Justification[]>([
-    {
-      id: '1',
-      employeeName: 'Carlos Oliveira',
-      date: '2024-01-20',
-      type: 'late',
-      reason: 'Trânsito intenso na cidade',
-      status: 'pending'
+      requestDate: '2024-01-15',
+      approvedBy: 'Maria Santos'
     },
     {
       id: '2',
-      employeeName: 'Ana Costa',
-      date: '2024-01-18',
-      type: 'absence',
-      reason: 'Consulta médica',
-      document: 'atestado_medico.pdf',
-      status: 'approved'
+      employeeName: 'Carlos Oliveira',
+      type: 'medical',
+      startDate: '2024-01-20',
+      endDate: '2024-01-22',
+      days: 3,
+      reason: 'Atestado médico - consulta especializada',
+      status: 'pending',
+      requestDate: '2024-01-19',
+      documents: ['atestado_medico.pdf']
     }
   ]);
+  
+  const [selectedRequest, setSelectedRequest] = useState<VacationRequest | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [formData, setFormData] = useState({
+    type: 'vacation',
+    startDate: '',
+    endDate: '',
+    reason: ''
+  });
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  const handleApproveVacation = (id: string) => {
-    toast({
-      title: "Férias aprovadas!",
-      description: "A solicitação de férias foi aprovada com sucesso.",
-    });
-  };
-
-  const handleRejectVacation = (id: string) => {
-    toast({
-      title: "Férias rejeitadas",
-      description: "A solicitação de férias foi rejeitada.",
-      variant: "destructive",
-    });
-  };
-
-  const handleApproveJustification = (id: string) => {
-    toast({
-      title: "Justificativa aprovada!",
-      description: "A justificativa foi aprovada com sucesso.",
-    });
-  };
-
-  const handleRejectJustification = (id: string) => {
-    toast({
-      title: "Justificativa rejeitada",
-      description: "A justificativa foi rejeitada.",
-      variant: "destructive",
-    });
+  const getTypeLabel = (type: string) => {
+    const labels = {
+      vacation: 'Férias',
+      medical: 'Atestado Médico',
+      personal: 'Licença Pessoal',
+      maternity: 'Licença Maternidade',
+      paternity: 'Licença Paternidade'
+    };
+    return labels[type as keyof typeof labels] || type;
   };
 
   const getStatusBadge = (status: string) => {
@@ -131,251 +97,382 @@ export const VacationManagement: React.FC = () => {
     );
   };
 
-  const getTypeLabel = (type: string) => {
-    const labels = {
-      absence: 'Falta',
-      late: 'Atraso',
-      early_leave: 'Saída Antecipada'
-    };
-    return labels[type as keyof typeof labels];
+  const calculateDays = (start: string, end: string) => {
+    if (!start || !end) return 0;
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  const handleViewRequest = (request: VacationRequest) => {
+    setSelectedRequest(request);
+    setFormData({
+      type: request.type,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      reason: request.reason
+    });
+    setDialogMode('view');
+    setShowDialog(true);
+  };
+
+  const handleEditRequest = (request: VacationRequest) => {
+    setSelectedRequest(request);
+    setFormData({
+      type: request.type,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      reason: request.reason
+    });
+    setDialogMode('edit');
+    setShowDialog(true);
+  };
+
+  const handleNewRequest = () => {
+    setSelectedRequest(null);
+    setFormData({
+      type: 'vacation',
+      startDate: '',
+      endDate: '',
+      reason: ''
+    });
+    setDialogMode('create');
+    setShowDialog(true);
+  };
+
+  const handleSaveRequest = () => {
+    const days = calculateDays(formData.startDate, formData.endDate);
+    
+    if (dialogMode === 'create') {
+      const newRequest: VacationRequest = {
+        id: Date.now().toString(),
+        employeeName: user?.name || '',
+        type: formData.type as any,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        days,
+        reason: formData.reason,
+        status: 'pending',
+        requestDate: new Date().toISOString().split('T')[0]
+      };
+      setRequests(prev => [...prev, newRequest]);
+      toast({
+        title: "Solicitação criada",
+        description: "Sua solicitação foi enviada para aprovação.",
+      });
+    } else if (dialogMode === 'edit' && selectedRequest) {
+      setRequests(prev => prev.map(req => 
+        req.id === selectedRequest.id 
+          ? { ...req, ...formData, days }
+          : req
+      ));
+      toast({
+        title: "Solicitação atualizada",
+        description: "As alterações foram salvas com sucesso.",
+      });
+    }
+    setShowDialog(false);
+  };
+
+  const handleApproveRequest = (requestId: string) => {
+    setRequests(prev => prev.map(req => 
+      req.id === requestId 
+        ? { ...req, status: 'approved' as const, approvedBy: user?.name }
+        : req
+    ));
+    toast({
+      title: "Solicitação aprovada",
+      description: "A solicitação foi aprovada com sucesso.",
+    });
+  };
+
+  const handleRejectRequest = (requestId: string) => {
+    setRequests(prev => prev.map(req => 
+      req.id === requestId 
+        ? { ...req, status: 'rejected' as const, approvedBy: user?.name }
+        : req
+    ));
+    toast({
+      title: "Solicitação rejeitada",
+      description: "A solicitação foi rejeitada.",
+    });
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            {activeTab === 'vacation' ? 'Gestão de Férias' : 'Gestão de Justificativas'}
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight">Gestão de Férias e Justificativas</h2>
           <p className="text-muted-foreground">
-            {activeTab === 'vacation' 
-              ? 'Gerencie solicitações de férias dos funcionários'
-              : 'Gerencie justificativas de faltas e atrasos'
-            }
+            Gerencie férias, atestados e licenças
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant={activeTab === 'vacation' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('vacation')}
-          >
-            <Calendar className="mr-2 h-4 w-4" />
-            Férias
-          </Button>
-          <Button 
-            variant={activeTab === 'justifications' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('justifications')}
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Justificativas
-          </Button>
-        </div>
+        <Button onClick={handleNewRequest}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nova Solicitação
+        </Button>
       </div>
 
-      {activeTab === 'vacation' && (
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Solicitações de Férias</CardTitle>
-            <CardDescription>
-              Todas as solicitações de férias pendentes e processadas
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Férias Pendentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Funcionário</TableHead>
-                  <TableHead>Data Início</TableHead>
-                  <TableHead>Data Fim</TableHead>
-                  <TableHead>Dias</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Motivo</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vacationRequests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.employeeName}</TableCell>
-                    <TableCell>{new Date(request.startDate).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell>{new Date(request.endDate).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell>{request.days} dias</TableCell>
-                    <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    <TableCell>{request.reason}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {request.status === 'pending' && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveVacation(request.id)}
-                            >
-                              <CheckCircle className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleRejectVacation(request.id)}
-                            >
-                              <XCircle className="h-3 w-3" />
-                            </Button>
-                          </>
-                        )}
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="text-2xl font-bold">
+              {requests.filter(r => r.type === 'vacation' && r.status === 'pending').length}
+            </div>
           </CardContent>
         </Card>
-      )}
-
-      {activeTab === 'justifications' && (
         <Card>
-          <CardHeader>
-            <CardTitle>Justificativas</CardTitle>
-            <CardDescription>
-              Justificativas de faltas, atrasos e saídas antecipadas
-            </CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Atestados Pendentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Funcionário</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Motivo</TableHead>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {justifications.map((justification) => (
-                  <TableRow key={justification.id}>
-                    <TableCell className="font-medium">{justification.employeeName}</TableCell>
-                    <TableCell>{new Date(justification.date).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell>{getTypeLabel(justification.type)}</TableCell>
-                    <TableCell>{justification.reason}</TableCell>
-                    <TableCell>
-                      {justification.document && (
-                        <Button size="sm" variant="outline">
-                          <FileText className="h-3 w-3 mr-1" />
-                          Ver
+            <div className="text-2xl font-bold">
+              {requests.filter(r => r.type === 'medical' && r.status === 'pending').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Aprovadas Este Mês</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {requests.filter(r => r.status === 'approved').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total de Dias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {requests.filter(r => r.status === 'approved').reduce((acc, r) => acc + r.days, 0)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Solicitações</CardTitle>
+          <CardDescription>
+            Lista de todas as solicitações de férias e justificativas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Funcionário</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Período</TableHead>
+                <TableHead>Dias</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Data Solicitação</TableHead>
+                <TableHead>Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {requests.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell className="font-medium">{request.employeeName}</TableCell>
+                  <TableCell>{getTypeLabel(request.type)}</TableCell>
+                  <TableCell>
+                    {new Date(request.startDate).toLocaleDateString('pt-BR')} - {' '}
+                    {new Date(request.endDate).toLocaleDateString('pt-BR')}
+                  </TableCell>
+                  <TableCell>{request.days} dias</TableCell>
+                  <TableCell>{getStatusBadge(request.status)}</TableCell>
+                  <TableCell>{new Date(request.requestDate).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewRequest(request)}
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                      {(user?.role === 'admin' || request.employeeName === user?.name) && request.status === 'pending' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditRequest(request)}
+                        >
+                          <Edit className="h-3 w-3" />
                         </Button>
                       )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(justification.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {justification.status === 'pending' && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveJustification(justification.id)}
-                            >
-                              <CheckCircle className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleRejectJustification(justification.id)}
-                            >
-                              <XCircle className="h-3 w-3" />
-                            </Button>
-                          </>
-                        )}
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+                      {user?.role === 'admin' && request.status === 'pending' && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600"
+                            onClick={() => handleApproveRequest(request.id)}
+                          >
+                            ✓
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600"
+                            onClick={() => handleRejectRequest(request.id)}
+                          >
+                            ✗
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {dialogType === 'vacation' ? 'Nova Solicitação de Férias' : 'Nova Justificativa'}
+              {dialogMode === 'create' && 'Nova Solicitação'}
+              {dialogMode === 'edit' && 'Editar Solicitação'}
+              {dialogMode === 'view' && 'Detalhes da Solicitação'}
             </DialogTitle>
             <DialogDescription>
-              {dialogType === 'vacation' 
-                ? 'Preencha os dados para solicitar férias'
-                : 'Preencha os dados da justificativa'
-              }
+              {dialogMode === 'create' && 'Preencha os dados da nova solicitação'}
+              {dialogMode === 'edit' && 'Edite os dados da solicitação'}
+              {dialogMode === 'view' && 'Visualize os detalhes completos da solicitação'}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            {dialogType === 'vacation' ? (
-              <>
+            {dialogMode === 'view' && selectedRequest && (
+              <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="start-date">Data de Início</Label>
-                    <Input id="start-date" type="date" />
+                  <div>
+                    <Label>Funcionário</Label>
+                    <p className="text-sm font-medium">{selectedRequest.employeeName}</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end-date">Data de Fim</Label>
-                    <Input id="end-date" type="date" />
+                  <div>
+                    <Label>Status</Label>
+                    <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
                   </div>
+                  <div>
+                    <Label>Tipo</Label>
+                    <p className="text-sm">{getTypeLabel(selectedRequest.type)}</p>
+                  </div>
+                  <div>
+                    <Label>Total de Dias</Label>
+                    <p className="text-sm font-medium">{selectedRequest.days} dias</p>
+                  </div>
+                </div>
+                <div>
+                  <Label>Período</Label>
+                  <p className="text-sm">
+                    {new Date(selectedRequest.startDate).toLocaleDateString('pt-BR')} a {' '}
+                    {new Date(selectedRequest.endDate).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+                <div>
+                  <Label>Justificativa/Motivo</Label>
+                  <p className="text-sm bg-muted p-3 rounded-md">{selectedRequest.reason}</p>
+                </div>
+                {selectedRequest.approvedBy && (
+                  <div>
+                    <Label>Aprovado por</Label>
+                    <p className="text-sm">{selectedRequest.approvedBy}</p>
+                  </div>
+                )}
+                {selectedRequest.documents && selectedRequest.documents.length > 0 && (
+                  <div>
+                    <Label>Documentos</Label>
+                    <div className="flex gap-2 mt-1">
+                      {selectedRequest.documents.map((doc, index) => (
+                        <Button key={index} variant="outline" size="sm">
+                          <FileText className="h-3 w-3 mr-1" />
+                          {doc}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {dialogMode !== 'view' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="type">Tipo</Label>
+                  <Select 
+                    value={formData.type} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vacation">Férias</SelectItem>
+                      <SelectItem value="medical">Atestado Médico</SelectItem>
+                      <SelectItem value="personal">Licença Pessoal</SelectItem>
+                      <SelectItem value="maternity">Licença Maternidade</SelectItem>
+                      <SelectItem value="paternity">Licença Paternidade</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="vacation-reason">Motivo</Label>
-                  <Textarea id="vacation-reason" placeholder="Descreva o motivo das férias" />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="justification-date">Data</Label>
-                    <Input id="justification-date" type="date" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="justification-type">Tipo</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="absence">Falta</SelectItem>
-                        <SelectItem value="late">Atraso</SelectItem>
-                        <SelectItem value="early_leave">Saída Antecipada</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Label>Dias</Label>
+                  <p className="text-sm font-medium pt-2">
+                    {calculateDays(formData.startDate, formData.endDate)} dias
+                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="justification-reason">Motivo</Label>
-                  <Textarea id="justification-reason" placeholder="Descreva o motivo" />
+                  <Label htmlFor="startDate">Data Início</Label>
+                  <Input 
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="document">Documento Comprobatório (Opcional)</Label>
-                  <Input id="document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+                  <Label htmlFor="endDate">Data Fim</Label>
+                  <Input 
+                    id="endDate"
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                  />
                 </div>
-              </>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="reason">Justificativa/Motivo</Label>
+                  <Textarea 
+                    id="reason"
+                    value={formData.reason}
+                    onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+                    placeholder="Descreva o motivo da solicitação..."
+                    rows={3}
+                  />
+                </div>
+              </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => setShowDialog(false)}>
-              Enviar Solicitação
-            </Button>
-          </DialogFooter>
+          {dialogMode !== 'view' && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveRequest}>
+                {dialogMode === 'create' ? 'Criar Solicitação' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

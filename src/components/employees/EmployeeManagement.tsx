@@ -4,18 +4,101 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth, User } from '@/contexts/AuthContext';
 import { Plus, Edit, Trash, Search, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+const departments = [
+  'TI', 'RH', 'MARKETING', 'CONTABILIDADE', 'FINANCEIRO',
+  'VENDAS', 'ATENDIMENTO', 'JURIDICO', 'ADMINISTRATIVO',
+  'OPERACIONAL', 'COMERCIAL', 'COMPRAS', 'LOGISTICA',
+  'AUDITORIA', 'QUALIDADE', 'PRODUCAO', 'MANUTENCAO'
+];
+
 export const EmployeeManagement: React.FC = () => {
-  const [employees, setEmployees] = useState<User[]>([]);
+  const [employees, setEmployees] = useState<User[]>([
+    {
+      id: '1',
+      name: 'João Silva',
+      email: 'joao@empresa.com',
+      role: 'employee',
+      department: 'TI',
+      position: 'Desenvolvedor',
+      avatar: '',
+      companyId: '1',
+      workSchedule: {
+        monday: { start: '08:00', end: '18:00' },
+        tuesday: { start: '08:00', end: '18:00' },
+        wednesday: { start: '08:00', end: '18:00' },
+        thursday: { start: '08:00', end: '18:00' },
+        friday: { start: '08:00', end: '18:00' },
+        saturday: { start: '', end: '' },
+        sunday: { start: '', end: '' }
+      },
+      salary: 5500,
+      admissionDate: '2023-01-15',
+      isActive: true
+    },
+    {
+      id: '2',
+      name: 'Maria Santos',
+      email: 'maria@empresa.com',
+      role: 'employee',
+      department: 'RH',
+      position: 'Analista de RH',
+      avatar: '',
+      companyId: '1',
+      workSchedule: {
+        monday: { start: '08:00', end: '18:00' },
+        tuesday: { start: '08:00', end: '18:00' },
+        wednesday: { start: '08:00', end: '18:00' },
+        thursday: { start: '08:00', end: '18:00' },
+        friday: { start: '08:00', end: '18:00' },
+        saturday: { start: '', end: '' },
+        sunday: { start: '', end: '' }
+      },
+      salary: 4200,
+      admissionDate: '2022-03-10',
+      isActive: true
+    },
+    {
+      id: '3',
+      name: 'Carlos Oliveira',
+      email: 'carlos@empresa.com',
+      role: 'employee',
+      department: 'MARKETING',
+      position: 'Analista de Marketing',
+      avatar: '',
+      companyId: '1',
+      workSchedule: {
+        monday: { start: '08:00', end: '18:00' },
+        tuesday: { start: '08:00', end: '18:00' },
+        wednesday: { start: '08:00', end: '18:00' },
+        thursday: { start: '08:00', end: '18:00' },
+        friday: { start: '08:00', end: '18:00' },
+        saturday: { start: '', end: '' },
+        sunday: { start: '', end: '' }
+      },
+      salary: 4800,
+      admissionDate: '2023-06-01',
+      isActive: true
+    }
+  ]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    department: '',
+    position: '',
+    salary: 0,
+    admissionDate: ''
+  });
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -27,20 +110,87 @@ export const EmployeeManagement: React.FC = () => {
 
   const handleAddEmployee = () => {
     setSelectedEmployee(null);
+    setFormData({
+      name: '',
+      email: '',
+      department: '',
+      position: '',
+      salary: 0,
+      admissionDate: ''
+    });
     setDialogMode('create');
     setShowDialog(true);
   };
 
   const handleEditEmployee = (employee: User) => {
     setSelectedEmployee(employee);
+    setFormData({
+      name: employee.name,
+      email: employee.email,
+      department: employee.department,
+      position: employee.position,
+      salary: employee.salary,
+      admissionDate: employee.admissionDate
+    });
     setDialogMode('edit');
     setShowDialog(true);
   };
 
   const handleViewEmployee = (employee: User) => {
     setSelectedEmployee(employee);
+    setFormData({
+      name: employee.name,
+      email: employee.email,
+      department: employee.department,
+      position: employee.position,
+      salary: employee.salary,
+      admissionDate: employee.admissionDate
+    });
     setDialogMode('view');
     setShowDialog(true);
+  };
+
+  const handleSaveEmployee = () => {
+    if (dialogMode === 'create') {
+      const newEmployee: User = {
+        id: Date.now().toString(),
+        name: formData.name,
+        email: formData.email,
+        role: 'employee',
+        department: formData.department,
+        position: formData.position,
+        avatar: '',
+        companyId: '1',
+        workSchedule: {
+          monday: { start: '08:00', end: '18:00' },
+          tuesday: { start: '08:00', end: '18:00' },
+          wednesday: { start: '08:00', end: '18:00' },
+          thursday: { start: '08:00', end: '18:00' },
+          friday: { start: '08:00', end: '18:00' },
+          saturday: { start: '', end: '' },
+          sunday: { start: '', end: '' }
+        },
+        salary: formData.salary,
+        admissionDate: formData.admissionDate,
+        isActive: true
+      };
+      setEmployees(prev => [...prev, newEmployee]);
+      toast({
+        title: "Funcionário adicionado",
+        description: "O funcionário foi adicionado com sucesso.",
+      });
+    } else if (dialogMode === 'edit' && selectedEmployee) {
+      setEmployees(prev => prev.map(emp => 
+        emp.id === selectedEmployee.id 
+          ? { ...emp, ...formData }
+          : emp
+      ));
+      toast({
+        title: "Funcionário atualizado",
+        description: "Os dados do funcionário foram atualizados com sucesso.",
+      });
+    }
+    setShowDialog(false);
   };
 
   const handleDeleteEmployee = (employeeId: string) => {
@@ -92,6 +242,7 @@ export const EmployeeManagement: React.FC = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Departamento</TableHead>
                 <TableHead>Cargo</TableHead>
+                <TableHead>Salário</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
@@ -103,6 +254,7 @@ export const EmployeeManagement: React.FC = () => {
                   <TableCell>{employee.email}</TableCell>
                   <TableCell>{employee.department}</TableCell>
                   <TableCell>{employee.position}</TableCell>
+                  <TableCell>R$ {employee.salary.toLocaleString('pt-BR')}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       employee.isActive 
@@ -168,7 +320,8 @@ export const EmployeeManagement: React.FC = () => {
               <Label htmlFor="name">Nome Completo</Label>
               <Input 
                 id="name" 
-                defaultValue={selectedEmployee?.name}
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 disabled={dialogMode === 'view'}
               />
             </div>
@@ -177,23 +330,36 @@ export const EmployeeManagement: React.FC = () => {
               <Input 
                 id="email" 
                 type="email"
-                defaultValue={selectedEmployee?.email}
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 disabled={dialogMode === 'view'}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Departamento</Label>
-              <Input 
-                id="department"
-                defaultValue={selectedEmployee?.department}
+              <Select 
+                value={formData.department} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))}
                 disabled={dialogMode === 'view'}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um departamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(dept => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="position">Cargo</Label>
               <Input 
                 id="position"
-                defaultValue={selectedEmployee?.position}
+                value={formData.position}
+                onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
                 disabled={dialogMode === 'view'}
               />
             </div>
@@ -202,7 +368,8 @@ export const EmployeeManagement: React.FC = () => {
               <Input 
                 id="salary"
                 type="number"
-                defaultValue={selectedEmployee?.salary}
+                value={formData.salary}
+                onChange={(e) => setFormData(prev => ({ ...prev, salary: Number(e.target.value) }))}
                 disabled={dialogMode === 'view'}
               />
             </div>
@@ -211,7 +378,8 @@ export const EmployeeManagement: React.FC = () => {
               <Input 
                 id="admission"
                 type="date"
-                defaultValue={selectedEmployee?.admissionDate}
+                value={formData.admissionDate}
+                onChange={(e) => setFormData(prev => ({ ...prev, admissionDate: e.target.value }))}
                 disabled={dialogMode === 'view'}
               />
             </div>
@@ -222,7 +390,7 @@ export const EmployeeManagement: React.FC = () => {
               <Button variant="outline" onClick={() => setShowDialog(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => setShowDialog(false)}>
+              <Button onClick={handleSaveEmployee}>
                 {dialogMode === 'create' ? 'Adicionar' : 'Salvar'}
               </Button>
             </DialogFooter>

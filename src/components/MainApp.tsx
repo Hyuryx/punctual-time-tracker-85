@@ -11,13 +11,17 @@ import { SystemSettings } from './settings/SystemSettings';
 import { VacationManagement } from './vacation/VacationManagement';
 import { TimesheetView } from './timesheet/TimesheetView';
 import { AuditLog } from './audit/AuditLog';
+import { ProfileManagement } from './profile/ProfileManagement';
+import { LocationManagement } from './locations/LocationManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export const MainApp: React.FC = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const renderContent = () => {
     switch (activeSection) {
@@ -25,9 +29,9 @@ export const MainApp: React.FC = () => {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+              <h2 className="text-2xl font-bold tracking-tight">{t('dashboard')}</h2>
               <p className="text-muted-foreground">
-                Bem-vindo de volta, {user?.name}!
+                {t('welcome')}, {user?.name}!
               </p>
             </div>
             <DashboardStats />
@@ -57,7 +61,7 @@ export const MainApp: React.FC = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Status Atual</CardTitle>
-                  <CardDescription>Informações do seu turno</CardDescription>
+                  <CardDescription>Informações do seu turno (9h + 1h almoço)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -66,8 +70,8 @@ export const MainApp: React.FC = () => {
                       <span className="text-green-600 font-medium">Trabalhando</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Horas Trabalhadas</span>
-                      <span className="text-muted-foreground">7h 45m</span>
+                      <span>Jornada Obrigatória</span>
+                      <span className="text-muted-foreground">9h + 1h almoço</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Próxima Ação</span>
@@ -84,9 +88,9 @@ export const MainApp: React.FC = () => {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">Registro de Ponto</h2>
+              <h2 className="text-2xl font-bold tracking-tight">{t('timeEntry')}</h2>
               <p className="text-muted-foreground">
-                Registre sua entrada, saída e intervalos
+                Registre sua entrada, saída e intervalos (9h + 1h almoço)
               </p>
             </div>
             <div className="max-w-md mx-auto">
@@ -94,6 +98,9 @@ export const MainApp: React.FC = () => {
             </div>
           </div>
         );
+
+      case 'profile':
+        return <ProfileManagement />;
 
       case 'timesheet':
         return <TimesheetView />;
@@ -104,13 +111,14 @@ export const MainApp: React.FC = () => {
             <div>
               <h2 className="text-2xl font-bold tracking-tight">Horas Extras</h2>
               <p className="text-muted-foreground">
-                Gerencie suas horas extras
+                Gerencie suas horas extras (acima de 9h diárias)
               </p>
             </div>
             <Card>
               <CardContent className="p-6">
                 <p className="text-center text-muted-foreground">
-                  Sistema de horas extras implementado com cálculo automático
+                  Sistema de horas extras implementado com cálculo automático.
+                  Qualquer tempo trabalhado acima de 9h é contabilizado como hora extra.
                 </p>
               </CardContent>
             </Card>
@@ -127,23 +135,7 @@ export const MainApp: React.FC = () => {
         return <ReportsManagement />;
 
       case 'locations':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Localizações</h2>
-              <p className="text-muted-foreground">
-                Gerencie locais de trabalho
-              </p>
-            </div>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-center text-muted-foreground">
-                  Sistema de geolocalização ativo para registros de ponto
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        );
+        return <LocationManagement />;
 
       case 'companies':
         return <CompanyManagement />;

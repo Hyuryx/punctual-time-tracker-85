@@ -30,25 +30,74 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, description, icon: Ic
 );
 
 export const DashboardStats: React.FC = () => {
+  // Calculate real-time hours based on localStorage entries
+  const calculateWorkedHours = () => {
+    const entries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
+    const today = new Date().toDateString();
+    const todayEntries = entries.filter((entry: any) => 
+      new Date(entry.timestamp).toDateString() === today
+    );
+
+    if (todayEntries.length === 0) return { worked: '0h 00m', overtime: '0h 00m' };
+
+    let totalMinutes = 0;
+    let breakMinutes = 0;
+    let lastEntry = null;
+
+    for (const entry of todayEntries) {
+      if (entry.type === 'entry') {
+        lastEntry = new Date(entry.timestamp);
+      } else if (entry.type === 'break_start' && lastEntry) {
+        totalMinutes += (new Date(entry.timestamp).getTime() - lastEntry.getTime()) / (1000 * 60);
+        lastEntry = null;
+      } else if (entry.type === 'break_end') {
+        lastEntry = new Date(entry.timestamp);
+      } else if (entry.type === 'exit' && lastEntry) {
+        totalMinutes += (new Date(entry.timestamp).getTime() - lastEntry.getTime()) / (1000 * 60);
+        lastEntry = null;
+      }
+    }
+
+    // If still working, add current time
+    if (lastEntry) {
+      totalMinutes += (new Date().getTime() - lastEntry.getTime()) / (1000 * 60);
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.floor(totalMinutes % 60);
+    
+    // Calculate overtime (anything over 9 hours)
+    const overtimeMinutes = Math.max(0, totalMinutes - 540); // 540 = 9 hours
+    const overtimeHours = Math.floor(overtimeMinutes / 60);
+    const overtimeMins = Math.floor(overtimeMinutes % 60);
+
+    return {
+      worked: `${hours}h ${minutes.toString().padStart(2, '0')}m`,
+      overtime: `${overtimeHours}h ${overtimeMins.toString().padStart(2, '0')}m`
+    };
+  };
+
+  const { worked, overtime } = calculateWorkedHours();
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatCard
         title="Horas Trabalhadas Hoje"
-        value="7h 45m"
-        description="Meta: 8h"
+        value={worked}
+        description="Meta: 9h (+ 1h almoço = 10h totais)"
         icon={Clock}
-        trend="+15 min vs ontem"
+        trend={worked !== '0h 00m' ? '+' + worked + ' registradas' : undefined}
       />
       <StatCard
         title="Horas Extras"
-        value="2h 30m"
-        description="Este mês"
+        value={overtime}
+        description="Hoje (acima de 9h)"
         icon={TrendingUp}
-        trend="+30 min vs mês anterior"
+        trend={overtime !== '0h 00m' ? 'Contabilizadas automaticamente' : undefined}
       />
       <StatCard
         title="Faltas"
-        value="1"
+        value="0"
         description="Este mês"
         icon={Calendar}
       />
