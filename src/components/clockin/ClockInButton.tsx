@@ -51,6 +51,22 @@ export const ClockInButton: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Load last entry from localStorage on component mount
+    const loadLastEntry = () => {
+      const entries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
+      if (entries.length > 0) {
+        const lastStoredEntry = entries[entries.length - 1];
+        // Convert timestamp back to Date object
+        const entryWithDate = {
+          ...lastStoredEntry,
+          timestamp: new Date(lastStoredEntry.timestamp)
+        };
+        setLastEntry(entryWithDate);
+      }
+    };
+
+    loadLastEntry();
+
     // Get user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -75,6 +91,15 @@ export const ClockInButton: React.FC = () => {
 
   const getNextAction = () => {
     if (!lastEntry) return 'entry';
+    
+    // Check if the last entry was today
+    const today = new Date().toDateString();
+    const lastEntryDate = new Date(lastEntry.timestamp).toDateString();
+    
+    // If last entry was not today, start fresh
+    if (today !== lastEntryDate) {
+      return 'entry';
+    }
     
     switch (lastEntry.type) {
       case 'entry':

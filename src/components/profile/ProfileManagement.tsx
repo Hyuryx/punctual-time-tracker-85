@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,13 +7,17 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Camera, Save, Edit } from 'lucide-react';
+import { Camera, Save, Edit, Monitor } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useScreenCapture } from '@/hooks/useScreenCapture';
 
 export const ProfileManagement: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { captureScreen } = useScreenCapture();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -37,6 +41,42 @@ export const ProfileManagement: React.FC = () => {
     'VENDAS', 'ATENDIMENTO', 'JURIDICO', 'ADMINISTRATIVO',
     'OPERACIONAL', 'COMERCIAL', 'COMPRAS', 'LOGISTICA'
   ];
+
+  const handlePhotoUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          setProfileImage(result);
+          localStorage.setItem('profileImage', result);
+          toast({
+            title: "Foto carregada!",
+            description: "Sua foto de perfil foi atualizada com sucesso.",
+          });
+        };
+        reader.readAsDataURL(file);
+      } else {
+        toast({
+          title: "Formato inválido",
+          description: "Por favor, selecione apenas arquivos de imagem.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    const savedImage = localStorage.getItem('profileImage');
+    if (savedImage) {
+      setProfileImage(savedImage);
+    }
+  }, []);
 
   const handleSave = () => {
     // In a real app, this would update the user data via API
@@ -88,22 +128,31 @@ export const ProfileManagement: React.FC = () => {
             Gerencie suas informações pessoais e configurações
           </p>
         </div>
-        <Button
-          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-          variant={isEditing ? "default" : "outline"}
-        >
-          {isEditing ? (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Salvar
-            </>
-          ) : (
-            <>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={captureScreen}
+            variant="outline"
+          >
+            <Monitor className="mr-2 h-4 w-4" />
+            Capturar Tela
+          </Button>
+          <Button
+            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+            variant={isEditing ? "default" : "outline"}
+          >
+            {isEditing ? (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Salvar
+              </>
+            ) : (
+              <>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -113,16 +162,26 @@ export const ProfileManagement: React.FC = () => {
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <Avatar className="w-32 h-32 mx-auto">
-              <AvatarImage src={user?.avatar} />
+              <AvatarImage src={profileImage || user?.avatar} />
               <AvatarFallback className="text-2xl">
                 {user?.name?.split(' ').map(n => n[0]).join('')}
               </AvatarFallback>
             </Avatar>
             {isEditing && (
-              <Button variant="outline" size="sm">
-                <Camera className="mr-2 h-4 w-4" />
-                Alterar Foto
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={handlePhotoUpload}>
+                  <Camera className="mr-2 h-4 w-4" />
+                  Alterar Foto
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  capture="environment"
+                />
+              </>
             )}
           </CardContent>
         </Card>

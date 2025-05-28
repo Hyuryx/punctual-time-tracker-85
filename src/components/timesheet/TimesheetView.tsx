@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Download, Clock, MapPin, FileSpreadsheet } from 'lucide-react';
+import { Calendar, Download, Clock, MapPin, FileSpreadsheet, Monitor } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useScreenCapture } from '@/hooks/useScreenCapture';
 import * as XLSX from 'xlsx';
 
 interface TimeEntry {
@@ -33,6 +35,7 @@ export const TimesheetView: React.FC = () => {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { captureScreen } = useScreenCapture();
 
   // Load real-time data from localStorage
   useEffect(() => {
@@ -169,6 +172,7 @@ export const TimesheetView: React.FC = () => {
   };
 
   const handleExportExcel = () => {
+    // Create formatted data for Excel export
     const data = timeEntries.map(entry => ({
       'Data': new Date(entry.date).toLocaleDateString('pt-BR'),
       'Entrada': entry.entries.entry || '-',
@@ -181,15 +185,86 @@ export const TimesheetView: React.FC = () => {
       'Localização': entry.locationName || entry.location || '-'
     }));
 
+    // Add summary row
+    data.push({
+      'Data': 'TOTAL',
+      'Entrada': '',
+      'Saída Almoço': '',
+      'Volta Almoço': '',
+      'Saída': '',
+      'Horas Trabalhadas': totals.totalWorked,
+      'Horas Extras': totals.totalOvertime,
+      'Status': `${totals.workingDays} dias trabalhados`,
+      'Localização': `${totals.absences} faltas`
+    });
+
     const ws = XLSX.utils.json_to_sheet(data);
+    
+    // Set column widths
+    const colWidths = [
+      { wch: 12 }, // Data
+      { wch: 10 }, // Entrada
+      { wch: 12 }, // Saída Almoço
+      { wch: 12 }, // Volta Almoço
+      { wch: 10 }, // Saída
+      { wch: 15 }, // Horas Trabalhadas
+      { wch: 12 }, // Horas Extras
+      { wch: 12 }, // Status
+      { wch: 25 }  // Localização
+    ];
+    ws['!cols'] = colWidths;
+
+    // Style the header row
+    const range = XLSX.utils.decode_range(ws['!ref']!);
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!ws[address]) continue;
+      ws[address].s = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "EFEFEF" } },
+        border: {
+          top: { style: "thin" },
+          bottom: { style: "thin" },
+          left: { style: "thin" },
+          right: { style: "thin" }
+        }
+      };
+    }
+
+    // Style the total row
+    const totalRowIndex = data.length - 1;
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_cell({ r: totalRowIndex + 1, c: C });
+      if (!ws[address]) continue;
+      ws[address].s = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "D4EDDA" } },
+        border: {
+          top: { style: "thick" },
+          bottom: { style: "thick" },
+          left: { style: "thin" },
+          right: { style: "thin" }
+        }
+      };
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Espelho de Ponto");
     
-    XLSX.writeFile(wb, `espelho-ponto-${selectedMonth}.xlsx`);
+    // Add metadata
+    wb.Props = {
+      Title: "Espelho de Ponto",
+      Subject: "Registro de Ponto",
+      Author: user?.name || "Sistema",
+      CreatedDate: new Date()
+    };
+    
+    const fileName = `espelho-ponto-${selectedMonth}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
     
     toast({
       title: "Arquivo exportado!",
-      description: "O espelho de ponto foi exportado para Excel com sucesso.",
+      description: `O espelho de ponto foi exportado como "${fileName}" com formatação completa.`,
     });
   };
 
@@ -213,6 +288,10 @@ export const TimesheetView: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={captureScreen} variant="outline">
+            <Monitor className="mr-2 h-4 w-4" />
+            Capturar Tela
+          </Button>
           <Button onClick={handleExportExcel} variant="outline">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Excel

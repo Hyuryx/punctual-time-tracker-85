@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './layout/Header';
 import { Sidebar } from './layout/Sidebar';
 import { DashboardStats } from './dashboard/DashboardStats';
@@ -22,6 +22,20 @@ export const MainApp: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user } = useAuth();
   const { t } = useLanguage();
+
+  // Load active section from localStorage on mount
+  useEffect(() => {
+    const savedSection = localStorage.getItem('activeSection');
+    if (savedSection) {
+      setActiveSection(savedSection);
+    }
+  }, []);
+
+  // Save active section to localStorage whenever it changes
+  const handleSectionChange = (section: string) => {
+    setActiveSection(section);
+    localStorage.setItem('activeSection', section);
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -163,7 +177,7 @@ export const MainApp: React.FC = () => {
     <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900">
       <Sidebar
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
         isCollapsed={sidebarCollapsed}
       />
       
