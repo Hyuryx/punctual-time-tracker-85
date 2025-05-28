@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Header } from './layout/Header';
 import { Sidebar } from './layout/Sidebar';
@@ -10,7 +9,7 @@ import { CompanyManagement } from './companies/CompanyManagement';
 import { SystemSettings } from './settings/SystemSettings';
 import { VacationManagement } from './vacation/VacationManagement';
 import { TimesheetView } from './timesheet/TimesheetView';
-import { AuditLog } from './audit/AuditLog';
+import { ContactManagement } from './contacts/ContactManagement';
 import { ProfileManagement } from './profile/ProfileManagement';
 import { LocationManagement } from './locations/LocationManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -154,8 +153,8 @@ export const MainApp: React.FC = () => {
       case 'companies':
         return <CompanyManagement />;
 
-      case 'audit':
-        return <AuditLog />;
+      case 'contacts':
+        return <ContactManagement />;
 
       case 'settings':
         return <SystemSettings />;

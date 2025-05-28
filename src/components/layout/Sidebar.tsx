@@ -13,9 +13,9 @@ import {
   FileText,
   Building,
   Timer,
-  Shield,
   Clipboard,
-  User
+  User,
+  ContactRound
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -36,7 +36,7 @@ const sidebarItems: SidebarItem[] = [
   { id: 'reports', label: 'Relatórios', icon: FileText, adminOnly: true },
   { id: 'locations', label: 'Localizações', icon: MapPin, adminOnly: true },
   { id: 'companies', label: 'Empresas', icon: Building, adminOnly: true },
-  { id: 'audit', label: 'Auditoria', icon: Shield, adminOnly: true },
+  { id: 'contacts', label: 'Contatos', icon: ContactRound, adminOnly: true },
   { id: 'settings', label: 'Configurações', icon: Settings, adminOnly: true },
 ];
 
