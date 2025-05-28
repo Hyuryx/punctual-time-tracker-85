@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Mail, Phone, Building, Users, Globe, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AddContactForm } from './AddContactForm';
 
 interface Contact {
   id: string;
@@ -23,8 +24,9 @@ interface Contact {
 export const ContactManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('todos');
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
 
-  const [contacts] = useState<Contact[]>([
+  const [contacts, setContacts] = useState<Contact[]>([
     {
       id: '1',
       name: 'João Silva',
@@ -96,6 +98,10 @@ export const ContactManagement: React.FC = () => {
     }
   ]);
 
+  const handleAddContact = (newContact: Contact) => {
+    setContacts(prev => [...prev, newContact]);
+  };
+
   const filteredContacts = contacts.filter(contact => {
     const matchesSearch = 
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,7 +126,7 @@ export const ContactManagement: React.FC = () => {
             Gerencie contatos de funcionários, parceiros e fornecedores
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setIsAddFormOpen(true)}>
           <Users className="mr-2 h-4 w-4" />
           Adicionar Contato
         </Button>
@@ -277,6 +283,12 @@ export const ContactManagement: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <AddContactForm
+        open={isAddFormOpen}
+        onOpenChange={setIsAddFormOpen}
+        onAddContact={handleAddContact}
+      />
     </div>
   );
 };
