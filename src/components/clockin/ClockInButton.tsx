@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +5,7 @@ import { Clock, MapPin, Wifi, WifiOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { useGeocoding } from '@/hooks/useGeocoding';
 
 interface TimeEntry {
   id: string;
@@ -28,9 +28,10 @@ export const ClockInButton: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lastEntry, setLastEntry] = useState<TimeEntry | null>(null);
   const [location, setLocation] = useState<string>('Carregando...');
-  const [locationName, setLocationName] = useState<string>('Carregando...');
+  const [locationName, setLocationName] = useState<string>('Carregando localização...');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
+  const { reverseGeocode, isLoading: geocodingLoading } = useGeocoding();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -67,27 +68,40 @@ export const ClockInButton: React.FC = () => {
 
     loadLastEntry();
 
-    // Get user location
+    // Get user location with real address
     if (navigator.geolocation) {
+      setLocationName('Obtendo localização...');
+      
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const coords = `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
           setLocation(coords);
           
-          // Find matching location name
-          const matchedLocation = mockLocations.find(loc => 
-            Math.abs(parseFloat(loc.coords.split(', ')[0]) - position.coords.latitude) < 0.01
-          );
-          
-          setLocationName(matchedLocation ? matchedLocation.name : 'Localização Externa');
+          try {
+            // Get real address using reverse geocoding
+            const address = await reverseGeocode(
+              position.coords.latitude, 
+              position.coords.longitude
+            );
+            setLocationName(address);
+          } catch (error) {
+            console.error('Error getting address:', error);
+            setLocationName('Localização Externa');
+          }
         },
-        () => {
+        (error) => {
+          console.error('Geolocation error:', error);
           setLocation('Localização não disponível');
           setLocationName('Localização não disponível');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
         }
       );
     }
-  }, []);
+  }, [reverseGeocode]);
 
   const getNextAction = () => {
     if (!lastEntry) return 'entry';
@@ -208,7 +222,9 @@ export const ClockInButton: React.FC = () => {
 
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4" />
-            <span>{locationName}</span>
+            <span className={geocodingLoading ? 'animate-pulse' : ''}>
+              {geocodingLoading ? 'Obtendo endereço...' : locationName}
+            </span>
           </div>
 
           <Button
@@ -222,7 +238,7 @@ export const ClockInButton: React.FC = () => {
 
           <div className="text-xs text-muted-foreground">
             <p>• Jornada: 9h de trabalho + 1h de almoço (10h totais)</p>
-            <p>• Localização GPS será registrada</p>
+            <p>• Localização GPS será registrada com endereço real</p>
             <p>• {isOnline ? 'Sincronização em tempo real' : 'Será sincronizado quando online'}</p>
           </div>
         </CardContent>
@@ -256,7 +272,7 @@ export const ClockInButton: React.FC = () => {
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Local:</p>
-                <p className="text-sm">{lastEntry.locationName}</p>
+                <p className="text-sm font-medium">{lastEntry.locationName}</p>
               </div>
             </div>
           </CardContent>
