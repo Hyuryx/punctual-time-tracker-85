@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Download, FileText, BarChart3, Clock, Users } from 'lucide-react';
+import { Calendar, Download, FileText, BarChart3, Clock, Users, TrendingDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const reportTypes = [
@@ -18,6 +18,7 @@ const reportTypes = [
   { id: 'audit', name: 'Auditoria', icon: FileText, description: 'Log de atividades do sistema' },
   { id: 'payroll', name: 'Folha de Pagamento', icon: BarChart3, description: 'Relatório para folha de pagamento' },
   { id: 'productivity', name: 'Produtividade', icon: BarChart3, description: 'Relatório de produtividade por departamento' },
+  { id: 'negative-hours', name: 'Horas Negativas', icon: TrendingDown, description: 'Relatório de horas negativas e déficits' },
 ];
 
 export const ReportsManagement: React.FC = () => {
@@ -51,6 +52,35 @@ export const ReportsManagement: React.FC = () => {
       employee: selectedEmployee,
       department: selectedDepartment
     });
+  };
+
+  const handleQuickReport = (reportType: string) => {
+    // Use current configuration settings for quick reports
+    const reportConfig = {
+      type: reportType,
+      startDate: startDate || new Date().toISOString().split('T')[0], // Use today if no date set
+      endDate: endDate || new Date().toISOString().split('T')[0],
+      employee: selectedEmployee || 'todos',
+      department: selectedDepartment || 'todos'
+    };
+
+    toast({
+      title: "Relatório rápido gerado!",
+      description: `Relatório de ${getReportName(reportType)} gerado com as configurações atuais.`,
+    });
+
+    console.log('Quick report generated:', reportConfig);
+  };
+
+  const getReportName = (reportType: string) => {
+    const reportNames: { [key: string]: string } = {
+      'timesheet': 'Ponto Hoje',
+      'overtime': 'Horas Extras Mês',
+      'absences': 'Faltas Mês',
+      'employees': 'Funcionários Ativos',
+      'negative-hours': 'Horas Negativas'
+    };
+    return reportNames[reportType] || reportType;
   };
 
   return (
@@ -165,26 +195,50 @@ export const ReportsManagement: React.FC = () => {
         <CardHeader>
           <CardTitle>Relatórios Rápidos</CardTitle>
           <CardDescription>
-            Acesso rápido aos relatórios mais utilizados
+            Acesso rápido aos relatórios mais utilizados (utiliza as configurações definidas acima)
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <Button variant="outline" className="justify-start">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+            <Button 
+              variant="outline" 
+              className="justify-start"
+              onClick={() => handleQuickReport('timesheet')}
+            >
               <Clock className="mr-2 h-4 w-4" />
               Ponto Hoje
             </Button>
-            <Button variant="outline" className="justify-start">
+            <Button 
+              variant="outline" 
+              className="justify-start"
+              onClick={() => handleQuickReport('overtime')}
+            >
               <BarChart3 className="mr-2 h-4 w-4" />
               Horas Extras Mês
             </Button>
-            <Button variant="outline" className="justify-start">
+            <Button 
+              variant="outline" 
+              className="justify-start"
+              onClick={() => handleQuickReport('absences')}
+            >
               <Calendar className="mr-2 h-4 w-4" />
               Faltas Mês
             </Button>
-            <Button variant="outline" className="justify-start">
+            <Button 
+              variant="outline" 
+              className="justify-start"
+              onClick={() => handleQuickReport('employees')}
+            >
               <Users className="mr-2 h-4 w-4" />
               Funcionários Ativos
+            </Button>
+            <Button 
+              variant="outline" 
+              className="justify-start"
+              onClick={() => handleQuickReport('negative-hours')}
+            >
+              <TrendingDown className="mr-2 h-4 w-4" />
+              Horas Negativas
             </Button>
           </div>
         </CardContent>
