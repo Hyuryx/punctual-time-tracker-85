@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 interface VacationRequest {
   id: string;
   employeeName: string;
-  type: 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity';
+  type: 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity' | 'justification';
   startDate: string;
   endDate: string;
   days: number;
@@ -57,7 +58,7 @@ export const VacationManagement: React.FC = () => {
   const [showDialog, setShowDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit' | 'view'>('create');
   const [formData, setFormData] = useState({
-    type: 'vacation' as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity',
+    type: 'vacation' as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity' | 'justification',
     startDate: '',
     endDate: '',
     reason: ''
@@ -71,7 +72,8 @@ export const VacationManagement: React.FC = () => {
       medical: 'Atestado Médico',
       personal: 'Licença Pessoal',
       maternity: 'Licença Maternidade',
-      paternity: 'Licença Paternidade'
+      paternity: 'Licença Paternidade',
+      justification: 'Justificativa'
     };
     return labels[type as keyof typeof labels] || type;
   };
@@ -96,8 +98,12 @@ export const VacationManagement: React.FC = () => {
     );
   };
 
-  const calculateDays = (start: string, end: string) => {
+  const calculateDays = (start: string, end: string, type: string) => {
     if (!start || !end) return 0;
+    
+    // Justificativas não contabilizam dias
+    if (type === 'justification') return 0;
+    
     const startDate = new Date(start);
     const endDate = new Date(end);
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
@@ -131,7 +137,7 @@ export const VacationManagement: React.FC = () => {
   const handleNewRequest = () => {
     setSelectedRequest(null);
     setFormData({
-      type: 'vacation' as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity',
+      type: 'vacation' as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity' | 'justification',
       startDate: '',
       endDate: '',
       reason: ''
@@ -141,7 +147,7 @@ export const VacationManagement: React.FC = () => {
   };
 
   const handleSaveRequest = () => {
-    const days = calculateDays(formData.startDate, formData.endDate);
+    const days = calculateDays(formData.startDate, formData.endDate, formData.type);
     
     if (dialogMode === 'create') {
       const newRequest: VacationRequest = {
@@ -204,7 +210,7 @@ export const VacationManagement: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Gestão de Férias e Justificativas</h2>
           <p className="text-muted-foreground">
-            Gerencie férias, atestados e licenças
+            Gerencie férias, atestados, licenças e justificativas
           </p>
         </div>
         <Button onClick={handleNewRequest}>
@@ -250,7 +256,7 @@ export const VacationManagement: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {requests.filter(r => r.status === 'approved').reduce((acc, r) => acc + r.days, 0)}
+              {requests.filter(r => r.status === 'approved' && r.type !== 'justification').reduce((acc, r) => acc + r.days, 0)}
             </div>
           </CardContent>
         </Card>
@@ -260,7 +266,7 @@ export const VacationManagement: React.FC = () => {
         <CardHeader>
           <CardTitle>Solicitações</CardTitle>
           <CardDescription>
-            Lista de todas as solicitações de férias e justificativas
+            Lista de todas as solicitações de férias, justificativas e licenças
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -285,7 +291,13 @@ export const VacationManagement: React.FC = () => {
                     {new Date(request.startDate).toLocaleDateString('pt-BR')} - {' '}
                     {new Date(request.endDate).toLocaleDateString('pt-BR')}
                   </TableCell>
-                  <TableCell>{request.days} dias</TableCell>
+                  <TableCell>
+                    {request.type === 'justification' ? (
+                      <span className="text-muted-foreground">N/A</span>
+                    ) : (
+                      `${request.days} dias`
+                    )}
+                  </TableCell>
                   <TableCell>{getStatusBadge(request.status)}</TableCell>
                   <TableCell>{new Date(request.requestDate).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>
@@ -368,7 +380,9 @@ export const VacationManagement: React.FC = () => {
                   </div>
                   <div>
                     <Label>Total de Dias</Label>
-                    <p className="text-sm font-medium">{selectedRequest.days} dias</p>
+                    <p className="text-sm font-medium">
+                      {selectedRequest.type === 'justification' ? 'N/A' : `${selectedRequest.days} dias`}
+                    </p>
                   </div>
                 </div>
                 <div>
@@ -410,7 +424,7 @@ export const VacationManagement: React.FC = () => {
                   <Label htmlFor="type">Tipo</Label>
                   <Select 
                     value={formData.type} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity' }))}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as 'vacation' | 'medical' | 'personal' | 'maternity' | 'paternity' | 'justification' }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -421,13 +435,14 @@ export const VacationManagement: React.FC = () => {
                       <SelectItem value="personal">Licença Pessoal</SelectItem>
                       <SelectItem value="maternity">Licença Maternidade</SelectItem>
                       <SelectItem value="paternity">Licença Paternidade</SelectItem>
+                      <SelectItem value="justification">Justificativa</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Dias</Label>
                   <p className="text-sm font-medium pt-2">
-                    {calculateDays(formData.startDate, formData.endDate)} dias
+                    {formData.type === 'justification' ? 'N/A' : `${calculateDays(formData.startDate, formData.endDate, formData.type)} dias`}
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -449,12 +464,18 @@ export const VacationManagement: React.FC = () => {
                   />
                 </div>
                 <div className="col-span-2 space-y-2">
-                  <Label htmlFor="reason">Justificativa/Motivo</Label>
+                  <Label htmlFor="reason">
+                    {formData.type === 'justification' ? 'Justificativa' : 'Justificativa/Motivo'}
+                  </Label>
                   <Textarea 
                     id="reason"
                     value={formData.reason}
                     onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Descreva o motivo da solicitação..."
+                    placeholder={
+                      formData.type === 'justification' 
+                        ? "Descreva o motivo da justificativa (ex: atraso, saída antecipada)..." 
+                        : "Descreva o motivo da solicitação..."
+                    }
                     rows={3}
                   />
                 </div>

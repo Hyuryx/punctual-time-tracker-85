@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Header } from './layout/Header';
 import { Sidebar } from './layout/Sidebar';
@@ -19,7 +18,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 export const MainApp: React.FC = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed on mobile
   const { user } = useAuth();
   const { t } = useLanguage();
 
@@ -29,6 +28,27 @@ export const MainApp: React.FC = () => {
     if (savedSection) {
       setActiveSection(savedSection);
     }
+    
+    // Set initial sidebar state based on screen size
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarCollapsed(false);
+      } else {
+        setSidebarCollapsed(true);
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    
+    // Listen for custom close sidebar event
+    const handleCloseSidebar = () => setSidebarCollapsed(true);
+    window.addEventListener('closeSidebar', handleCloseSidebar);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('closeSidebar', handleCloseSidebar);
+    };
   }, []);
 
   // Save active section to localStorage whenever it changes
@@ -37,9 +57,47 @@ export const MainApp: React.FC = () => {
     localStorage.setItem('activeSection', section);
   };
 
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
+  // Calculate recent activity including exit time
+  const getRecentActivity = () => {
+    const entries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
+    const today = new Date().toDateString();
+    const todayEntries = entries.filter((entry: any) => 
+      new Date(entry.timestamp).toDateString() === today
+    ).sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const activity = [];
+    
+    todayEntries.forEach((entry: any) => {
+      const time = new Date(entry.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      
+      switch (entry.type) {
+        case 'entry':
+          activity.push({ label: 'Entrada', time });
+          break;
+        case 'break_start':
+          activity.push({ label: 'Início do Intervalo', time });
+          break;
+        case 'break_end':
+          activity.push({ label: 'Fim do Intervalo', time });
+          break;
+        case 'exit':
+          activity.push({ label: 'Fim do Expediente', time });
+          break;
+      }
+    });
+
+    return activity;
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
+        const recentActivity = getRecentActivity();
+        
         return (
           <div className="space-y-4 sm:space-y-6">
             <div>
@@ -57,18 +115,18 @@ export const MainApp: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span>Entrada</span>
-                      <span className="text-muted-foreground">08:00</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Início do Intervalo</span>
-                      <span className="text-muted-foreground">12:00</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Fim do Intervalo</span>
-                      <span className="text-muted-foreground">13:00</span>
-                    </div>
+                    {recentActivity.length > 0 ? (
+                      recentActivity.map((activity, index) => (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span>{activity.label}</span>
+                          <span className="text-muted-foreground">{activity.time}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        Nenhum registro hoje. Faça seu primeiro registro de ponto!
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -174,16 +232,16 @@ export const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900 w-full">
       <Sidebar
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
         isCollapsed={sidebarCollapsed}
       />
       
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 w-full">
         <Header
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggleSidebar={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
         
