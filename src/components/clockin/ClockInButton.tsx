@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, MapPin, Wifi, WifiOff } from 'lucide-react';
+import { Clock, MapPin, Wifi, WifiOff, Target } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +13,8 @@ interface TimeEntry {
   timestamp: Date;
   location?: string;
   locationName?: string;
+  accuracy?: number;
+  locationSource?: string;
   synced: boolean;
 }
 
@@ -29,9 +31,11 @@ export const ClockInButton: React.FC = () => {
   const [lastEntry, setLastEntry] = useState<TimeEntry | null>(null);
   const [location, setLocation] = useState<string>('Carregando...');
   const [locationName, setLocationName] = useState<string>('Carregando localização...');
+  const [locationAccuracy, setLocationAccuracy] = useState<number>(0);
+  const [locationSource, setLocationSource] = useState<string>('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
-  const { reverseGeocode, isLoading: geocodingLoading } = useGeocoding();
+  const { getLocationWithAddress, isLoading: geocodingLoading } = useGeocoding();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -68,40 +72,48 @@ export const ClockInButton: React.FC = () => {
 
     loadLastEntry();
 
-    // Get user location with real address
-    if (navigator.geolocation) {
-      setLocationName('Obtendo localização...');
+    // Get enhanced location with Wi-Fi support
+    const getEnhancedLocation = async () => {
+      setLocationName('Obtendo localização precisa...');
       
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const coords = `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
-          setLocation(coords);
-          
-          try {
-            // Get real address using reverse geocoding
-            const address = await reverseGeocode(
-              position.coords.latitude, 
-              position.coords.longitude
-            );
-            setLocationName(address);
-          } catch (error) {
-            console.error('Error getting address:', error);
-            setLocationName('Localização Externa');
-          }
-        },
-        (error) => {
-          console.error('Geolocation error:', error);
-          setLocation('Localização não disponível');
-          setLocationName('Localização não disponível');
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000 // 5 minutes
-        }
-      );
-    }
-  }, [reverseGeocode]);
+      try {
+        const locationData = await getLocationWithAddress();
+        
+        setLocation(locationData.coordinates);
+        setLocationName(locationData.address);
+        setLocationAccuracy(locationData.accuracy);
+        setLocationSource(locationData.source);
+        
+        console.log('Localização obtida:', {
+          coordinates: locationData.coordinates,
+          address: locationData.address,
+          accuracy: locationData.accuracy,
+          source: locationData.source
+        });
+        
+        // Show success toast with accuracy info
+        toast({
+          title: "Localização obtida!",
+          description: `Precisão: ${Math.round(locationData.accuracy)}m (${locationData.source === 'gps' ? 'GPS' : 'Rede/Wi-Fi'})`,
+        });
+        
+      } catch (error) {
+        console.error('Erro ao obter localização:', error);
+        setLocation('Localização não disponível');
+        setLocationName('Localização não disponível');
+        setLocationAccuracy(0);
+        setLocationSource('erro');
+        
+        toast({
+          title: "Erro de localização",
+          description: "Não foi possível obter sua localização. Verifique as permissões.",
+          variant: "destructive"
+        });
+      }
+    };
+
+    getEnhancedLocation();
+  }, [getLocationWithAddress, toast]);
 
   const getNextAction = () => {
     if (!lastEntry) return 'entry';
@@ -167,6 +179,8 @@ export const ClockInButton: React.FC = () => {
       timestamp: new Date(),
       location,
       locationName,
+      accuracy: locationAccuracy,
+      locationSource,
       synced: isOnline
     };
 
@@ -183,15 +197,38 @@ export const ClockInButton: React.FC = () => {
       localStorage.setItem('offlineEntries', JSON.stringify(offlineEntries));
     }
 
+    const accuracyText = locationAccuracy > 0 ? ` (±${Math.round(locationAccuracy)}m)` : '';
+    const sourceText = locationSource === 'gps' ? 'GPS' : locationSource === 'network' ? 'Wi-Fi/Rede' : '';
+    
     toast({
       title: "Ponto registrado!",
-      description: `${getActionLabel(newEntry.type)} registrada às ${format(newEntry.timestamp, 'HH:mm:ss')}${!isOnline ? ' (será sincronizado quando online)' : ''}`,
+      description: `${getActionLabel(newEntry.type)} registrada às ${format(newEntry.timestamp, 'HH:mm:ss')}${accuracyText}${!isOnline ? ' (será sincronizado quando online)' : ''}`,
     });
 
     console.log('Ponto registrado:', newEntry);
   };
 
   const nextAction = getNextAction();
+
+  const getLocationIcon = () => {
+    if (geocodingLoading) return <Target className="h-4 w-4 animate-pulse" />;
+    if (locationSource === 'gps') return <Target className="h-4 w-4 text-green-600" />;
+    if (locationSource === 'network') return <MapPin className="h-4 w-4 text-blue-600" />;
+    return <MapPin className="h-4 w-4 text-orange-600" />;
+  };
+
+  const getLocationText = () => {
+    if (geocodingLoading) return 'Obtendo localização precisa...';
+    
+    let text = locationName;
+    if (locationAccuracy > 0) {
+      text += ` (±${Math.round(locationAccuracy)}m)`;
+    }
+    if (locationSource === 'gps') text += ' • GPS';
+    if (locationSource === 'network') text += ' • Wi-Fi/Rede';
+    
+    return text;
+  };
 
   return (
     <div className="space-y-6">
@@ -221,9 +258,9 @@ export const ClockInButton: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4" />
+            {getLocationIcon()}
             <span className={geocodingLoading ? 'animate-pulse' : ''}>
-              {geocodingLoading ? 'Obtendo endereço...' : locationName}
+              {getLocationText()}
             </span>
           </div>
 
@@ -238,7 +275,7 @@ export const ClockInButton: React.FC = () => {
 
           <div className="text-xs text-muted-foreground">
             <p>• Jornada: 9h de trabalho + 1h de almoço (10h totais)</p>
-            <p>• Localização GPS será registrada com endereço real</p>
+            <p>• Localização GPS/Wi-Fi será registrada com endereço real</p>
             <p>• {isOnline ? 'Sincronização em tempo real' : 'Será sincronizado quando online'}</p>
           </div>
         </CardContent>
@@ -268,11 +305,22 @@ export const ClockInButton: React.FC = () => {
                       <span className="text-xs">Aguardando sincronização</span>
                     </div>
                   )}
+                  {lastEntry.accuracy && (
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <Target className="h-3 w-3" />
+                      <span className="text-xs">±{Math.round(lastEntry.accuracy)}m</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Local:</p>
                 <p className="text-sm font-medium">{lastEntry.locationName}</p>
+                {lastEntry.locationSource && (
+                  <p className="text-xs text-muted-foreground">
+                    {lastEntry.locationSource === 'gps' ? 'GPS' : 'Wi-Fi/Rede'}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>

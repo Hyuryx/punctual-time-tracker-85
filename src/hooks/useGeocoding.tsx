@@ -15,9 +15,78 @@ interface GeocodeResult {
   };
 }
 
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  source: 'gps' | 'network' | 'passive';
+}
+
 export const useGeocoding = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getCurrentLocation = useCallback((): Promise<LocationData> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocalização não suportada'));
+        return;
+      }
+
+      // Primeira tentativa: alta precisão (GPS + Wi-Fi + dados móveis)
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log('Localização obtida (alta precisão):', {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+          
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            source: position.coords.accuracy < 100 ? 'gps' : 'network'
+          });
+        },
+        (error) => {
+          console.log('Erro na localização de alta precisão, tentando com precisão reduzida:', error);
+          
+          // Segunda tentativa: precisão reduzida (mais rápida, usa Wi-Fi/rede)
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log('Localização obtida (precisão reduzida):', {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                accuracy: position.coords.accuracy
+              });
+              
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                source: 'network'
+              });
+            },
+            (fallbackError) => {
+              console.error('Erro total na geolocalização:', fallbackError);
+              reject(fallbackError);
+            },
+            {
+              enableHighAccuracy: false, // Usa Wi-Fi/rede
+              timeout: 15000,
+              maximumAge: 600000 // 10 minutos
+            }
+          );
+        },
+        {
+          enableHighAccuracy: true, // Tenta GPS + Wi-Fi
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutos
+        }
+      );
+    });
+  }, []);
 
   const reverseGeocode = useCallback(async (lat: number, lon: number): Promise<string> => {
     setIsLoading(true);
@@ -77,8 +146,32 @@ export const useGeocoding = () => {
     }
   }, []);
 
+  const getLocationWithAddress = useCallback(async (): Promise<{
+    coordinates: string;
+    address: string;
+    accuracy: number;
+    source: string;
+  }> => {
+    try {
+      const locationData = await getCurrentLocation();
+      const address = await reverseGeocode(locationData.latitude, locationData.longitude);
+      
+      return {
+        coordinates: `${locationData.latitude.toFixed(6)}, ${locationData.longitude.toFixed(6)}`,
+        address,
+        accuracy: locationData.accuracy,
+        source: locationData.source
+      };
+    } catch (error) {
+      console.error('Erro ao obter localização:', error);
+      throw error;
+    }
+  }, [getCurrentLocation, reverseGeocode]);
+
   return {
     reverseGeocode,
+    getCurrentLocation,
+    getLocationWithAddress,
     isLoading,
     error
   };
