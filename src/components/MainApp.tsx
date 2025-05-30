@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Header } from './layout/Header';
 import { Sidebar } from './layout/Sidebar';
@@ -13,14 +14,18 @@ import { ContactManagement } from './contacts/ContactManagement';
 import { ProfileManagement } from './profile/ProfileManagement';
 import { LocationManagement } from './locations/LocationManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Monitor } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useScreenCapture } from '@/hooks/useScreenCapture';
 
 export const MainApp: React.FC = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed on mobile
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { captureScreen } = useScreenCapture();
 
   // Load active section from localStorage on mount
   useEffect(() => {
@@ -100,11 +105,17 @@ export const MainApp: React.FC = () => {
         
         return (
           <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{t('dashboard')}</h2>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                {t('welcome')}, {user?.name}!
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{t('dashboard')}</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  {t('welcome')}, {user?.name}!
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
             </div>
             <DashboardStats />
             <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
@@ -159,11 +170,17 @@ export const MainApp: React.FC = () => {
       case 'clock-in':
         return (
           <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{t('timeEntry')}</h2>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Registre sua entrada, saída e intervalos (9h + 1h almoço)
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{t('timeEntry')}</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Registre sua entrada, saída e intervalos (9h + 1h almoço)
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
             </div>
             <div className="max-w-md mx-auto px-4">
               <ClockInButton />
@@ -175,16 +192,38 @@ export const MainApp: React.FC = () => {
         return <ProfileManagement />;
 
       case 'timesheet':
-        return <TimesheetView />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Espelho de Ponto</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Visualize seu histórico de registros de ponto
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <TimesheetView />
+          </div>
+        );
 
       case 'overtime':
         return (
           <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Horas Extras</h2>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Gerencie suas horas extras (acima de 9h diárias)
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Horas Extras</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gerencie suas horas extras (acima de 9h diárias)
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
             </div>
             <Card>
               <CardContent className="p-4 sm:p-6">
@@ -198,25 +237,137 @@ export const MainApp: React.FC = () => {
         );
 
       case 'vacation':
-        return <VacationManagement />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Gestão de Férias</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gerencie solicitações de férias e justificativas
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <VacationManagement />
+          </div>
+        );
 
       case 'employees':
-        return <EmployeeManagement />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Gestão de Funcionários</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gerencie todos os funcionários da empresa
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <EmployeeManagement />
+          </div>
+        );
 
       case 'reports':
-        return <ReportsManagement />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Relatórios</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gere relatórios personalizados e analise dados
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <ReportsManagement />
+          </div>
+        );
 
       case 'locations':
-        return <LocationManagement />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Registro de Localizações</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gerencie localizações permitidas para registro de ponto
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <LocationManagement />
+          </div>
+        );
 
       case 'companies':
-        return <CompanyManagement />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Gestão de Empresas</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gerencie empresas e filiais do sistema
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <CompanyManagement />
+          </div>
+        );
 
       case 'contacts':
-        return <ContactManagement />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Contatos</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Gerencie contatos importantes da empresa
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <ContactManagement />
+          </div>
+        );
 
       case 'settings':
-        return <SystemSettings />;
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Configurações do Sistema</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Configure parâmetros gerais do sistema
+                </p>
+              </div>
+              <Button onClick={captureScreen} variant="outline">
+                <Monitor className="mr-2 h-4 w-4" />
+                Capturar Tela
+              </Button>
+            </div>
+            <SystemSettings />
+          </div>
+        );
 
       default:
         return (

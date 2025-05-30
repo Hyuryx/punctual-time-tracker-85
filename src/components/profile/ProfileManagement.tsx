@@ -42,6 +42,9 @@ export const ProfileManagement: React.FC = () => {
     'OPERACIONAL', 'COMERCIAL', 'COMPRAS', 'LOGISTICA'
   ];
 
+  // Check if user can edit profile data (only admins can edit all data)
+  const canEditProfileData = user?.role === 'admin';
+
   const handlePhotoUpload = () => {
     fileInputRef.current?.click();
   };
@@ -82,12 +85,13 @@ export const ProfileManagement: React.FC = () => {
     // In a real app, this would update the user data via API
     toast({
       title: "Perfil atualizado",
-      description: "Suas informações foram salvas com sucesso.",
+      description: canEditProfileData ? "Suas informações foram salvas com sucesso." : "Sua foto foi atualizada com sucesso.",
     });
     setIsEditing(false);
   };
 
   const handleInputChange = (field: string, value: string | number) => {
+    if (!canEditProfileData && field !== 'profileImage') return;
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -95,6 +99,7 @@ export const ProfileManagement: React.FC = () => {
   };
 
   const handleScheduleChange = (day: string, field: 'start' | 'end', value: string) => {
+    if (!canEditProfileData) return;
     setFormData(prev => ({
       ...prev,
       workSchedule: {
@@ -107,25 +112,16 @@ export const ProfileManagement: React.FC = () => {
     }));
   };
 
-  if (user?.role !== 'admin') {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">
-            Acesso restrito para administradores
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Meu Perfil</h2>
           <p className="text-muted-foreground">
-            Gerencie suas informações pessoais e configurações
+            {canEditProfileData ? 
+              'Gerencie suas informações pessoais e configurações' : 
+              'Visualize suas informações e altere sua foto de perfil'
+            }
           </p>
         </div>
         <div className="flex gap-2">
@@ -148,7 +144,7 @@ export const ProfileManagement: React.FC = () => {
             ) : (
               <>
                 <Edit className="mr-2 h-4 w-4" />
-                Editar
+                {canEditProfileData ? 'Editar' : 'Alterar Foto'}
               </>
             )}
           </Button>
@@ -189,6 +185,11 @@ export const ProfileManagement: React.FC = () => {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Informações Pessoais</CardTitle>
+            {!canEditProfileData && (
+              <CardDescription className="text-amber-600">
+                Apenas administradores podem alterar essas informações
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -198,7 +199,7 @@ export const ProfileManagement: React.FC = () => {
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEditProfileData}
                 />
               </div>
               <div className="space-y-2">
@@ -208,7 +209,7 @@ export const ProfileManagement: React.FC = () => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEditProfileData}
                 />
               </div>
               <div className="space-y-2">
@@ -216,7 +217,7 @@ export const ProfileManagement: React.FC = () => {
                 <Select 
                   value={formData.department} 
                   onValueChange={(value) => handleInputChange('department', value)}
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEditProfileData}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -236,7 +237,7 @@ export const ProfileManagement: React.FC = () => {
                   id="position"
                   value={formData.position}
                   onChange={(e) => handleInputChange('position', e.target.value)}
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEditProfileData}
                 />
               </div>
               <div className="space-y-2">
@@ -246,7 +247,7 @@ export const ProfileManagement: React.FC = () => {
                   type="number"
                   value={formData.salary}
                   onChange={(e) => handleInputChange('salary', Number(e.target.value))}
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEditProfileData}
                 />
               </div>
               <div className="space-y-2">
@@ -256,7 +257,7 @@ export const ProfileManagement: React.FC = () => {
                   type="date"
                   value={formData.admissionDate}
                   onChange={(e) => handleInputChange('admissionDate', e.target.value)}
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEditProfileData}
                 />
               </div>
             </div>
@@ -268,8 +269,16 @@ export const ProfileManagement: React.FC = () => {
         <CardHeader>
           <CardTitle>Horário de Trabalho</CardTitle>
           <CardDescription>
-            Configure seus horários de trabalho (9h + 1h almoço = 10h diárias)
+            {canEditProfileData ? 
+              'Configure seus horários de trabalho (9h + 1h almoço = 10h diárias)' :
+              'Visualize seus horários de trabalho (9h + 1h almoço = 10h diárias)'
+            }
           </CardDescription>
+          {!canEditProfileData && (
+            <CardDescription className="text-amber-600">
+              Apenas administradores podem alterar os horários
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
@@ -288,7 +297,7 @@ export const ProfileManagement: React.FC = () => {
                     type="time"
                     value={schedule.start}
                     onChange={(e) => handleScheduleChange(day, 'start', e.target.value)}
-                    disabled={!isEditing}
+                    disabled={!isEditing || !canEditProfileData}
                     className="w-32"
                   />
                   <span>às</span>
@@ -296,7 +305,7 @@ export const ProfileManagement: React.FC = () => {
                     type="time"
                     value={schedule.end}
                     onChange={(e) => handleScheduleChange(day, 'end', e.target.value)}
-                    disabled={!isEditing}
+                    disabled={!isEditing || !canEditProfileData}
                     className="w-32"
                   />
                 </div>

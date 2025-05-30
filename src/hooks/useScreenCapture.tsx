@@ -6,16 +6,30 @@ export const useScreenCapture = () => {
 
   const captureScreen = async () => {
     try {
-      // Use html2canvas directly to capture the entire page
+      // Use html2canvas to capture the entire page
       const { default: html2canvas } = await import('html2canvas');
       
+      // Get the full document height including scrollable content
+      const body = document.body;
+      const html = document.documentElement;
+      const fullHeight = Math.max(
+        body.scrollHeight,
+        body.offsetHeight,
+        html.clientHeight,
+        html.scrollHeight,
+        html.offsetHeight
+      );
+      
       const canvas = await html2canvas(document.body, {
-        height: window.innerHeight,
+        height: fullHeight,
         width: window.innerWidth,
         scrollX: 0,
         scrollY: 0,
         useCORS: true,
-        allowTaint: true
+        allowTaint: true,
+        scale: 1,
+        logging: false,
+        backgroundColor: '#ffffff'
       });
       
       canvas.toBlob((blob) => {
@@ -31,7 +45,7 @@ export const useScreenCapture = () => {
           
           toast({
             title: "Captura realizada!",
-            description: "A imagem da tela foi salva com sucesso.",
+            description: "A imagem da página completa foi salva com sucesso.",
           });
         }
       });
