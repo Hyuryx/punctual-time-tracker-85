@@ -1,435 +1,370 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Download, Clock, MapPin, FileSpreadsheet, Monitor } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { useScreenCapture } from '@/hooks/useScreenCapture';
-import * as XLSX from 'xlsx';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Clock, MapPin, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { format, parseISO, startOfDay, endOfDay, isSameDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface TimeEntry {
   id: string;
-  date: string;
-  entries: {
-    entry?: string;
-    breakStart?: string;
-    breakEnd?: string;
-    exit?: string;
-  };
-  workedHours: string;
-  overtime: string;
-  location: string;
+  type: 'entry' | 'exit' | 'break_start' | 'break_end';
+  timestamp: Date;
+  location?: string;
   locationName?: string;
-  hasPhoto: boolean;
-  status: 'complete' | 'incomplete' | 'absent';
+  accuracy?: number;
+  locationSource?: string;
+  synced: boolean;
+}
+
+interface DayEntry {
+  date: Date;
+  entries: TimeEntry[];
+  totalHours: number;
+  extraHours: number;
+  status: 'complete' | 'incomplete' | 'missing';
 }
 
 export const TimesheetView: React.FC = () => {
-  const [selectedMonth, setSelectedMonth] = useState('2024-01');
-  const [selectedEmployee, setSelectedEmployee] = useState('');
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const { captureScreen } = useScreenCapture();
+  const [filteredEntries, setFilteredEntries] = useState<DayEntry[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [selectedEmployee, setSelectedEmployee] = useState('all');
 
-  // Load real-time data from localStorage
   useEffect(() => {
-    const loadTimeEntries = () => {
-      const entries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
-      const processedEntries: TimeEntry[] = [];
-
-      // Group entries by date
-      const entriesByDate: { [key: string]: any[] } = {};
-      entries.forEach((entry: any) => {
-        const date = new Date(entry.timestamp).toISOString().split('T')[0];
-        if (!entriesByDate[date]) entriesByDate[date] = [];
-        entriesByDate[date].push(entry);
-      });
-
-      // Process each date
-      Object.entries(entriesByDate).forEach(([date, dayEntries]) => {
-        const sortedEntries = dayEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-        
-        const entryTimes: any = {};
-        let totalMinutes = 0;
-        let lastEntry: Date | null = null;
-
-        sortedEntries.forEach(entry => {
-          const time = new Date(entry.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-          
-          switch (entry.type) {
-            case 'entry':
-              entryTimes.entry = time;
-              lastEntry = new Date(entry.timestamp);
-              break;
-            case 'break_start':
-              entryTimes.breakStart = time;
-              if (lastEntry) {
-                totalMinutes += (new Date(entry.timestamp).getTime() - lastEntry.getTime()) / (1000 * 60);
-                lastEntry = null;
-              }
-              break;
-            case 'break_end':
-              entryTimes.breakEnd = time;
-              lastEntry = new Date(entry.timestamp);
-              break;
-            case 'exit':
-              entryTimes.exit = time;
-              if (lastEntry) {
-                totalMinutes += (new Date(entry.timestamp).getTime() - lastEntry.getTime()) / (1000 * 60);
-                lastEntry = null;
-              }
-              break;
-          }
-        });
-
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = Math.floor(totalMinutes % 60);
-        const workedHours = `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-        
-        const overtimeMinutes = Math.max(0, totalMinutes - 540); // 540 = 9 hours
-        const overtimeHours = Math.floor(overtimeMinutes / 60);
-        const overtimeMins = Math.floor(overtimeMinutes % 60);
-        const overtime = `${overtimeHours}h ${overtimeMins.toString().padStart(2, '0')}m`;
-
-        const status = entryTimes.entry && entryTimes.exit ? 'complete' : 
-                      entryTimes.entry ? 'incomplete' : 'absent';
-
-        processedEntries.push({
-          id: date,
-          date,
-          entries: entryTimes,
-          workedHours,
-          overtime,
-          location: sortedEntries[0]?.location || '',
-          locationName: sortedEntries[0]?.locationName || '',
-          hasPhoto: false,
-          status
-        });
-      });
-
-      setTimeEntries(processedEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    };
-
     loadTimeEntries();
-    
-    // Set up real-time sync
-    const interval = setInterval(loadTimeEntries, 1000);
-    return () => clearInterval(interval);
   }, []);
 
-  const calculateTotals = () => {
-    let totalWorked = 0;
-    let totalOvertime = 0;
-    
-    timeEntries.forEach(entry => {
-      const [hours, minutes] = entry.workedHours.replace(/[hm]/g, '').split(' ').map(Number);
-      const [overtimeHours, overtimeMinutes] = entry.overtime.replace(/[hm]/g, '').split(' ').map(Number);
-      
-      totalWorked += hours * 60 + minutes;
-      totalOvertime += overtimeHours * 60 + overtimeMinutes;
-    });
+  useEffect(() => {
+    filterEntries();
+  }, [timeEntries, selectedMonth, selectedEmployee]);
 
-    const formatTime = (minutes: number) => {
-      const h = Math.floor(minutes / 60);
-      const m = minutes % 60;
-      return `${h}h ${m.toString().padStart(2, '0')}m`;
-    };
-
-    return {
-      totalWorked: formatTime(totalWorked),
-      totalOvertime: formatTime(totalOvertime),
-      workingDays: timeEntries.filter(e => e.status !== 'absent').length,
-      absences: timeEntries.filter(e => e.status === 'absent').length
-    };
+  const loadTimeEntries = () => {
+    const entries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
+    const parsedEntries: TimeEntry[] = entries.map((entry: any) => ({
+      ...entry,
+      timestamp: new Date(entry.timestamp) // Garante que seja um objeto Date local
+    }));
+    setTimeEntries(parsedEntries);
   };
 
-  const totals = calculateTotals();
+  const filterEntries = () => {
+    // Criar data base para o mês selecionado no fuso horário local
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1); // Mês no fuso local
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999); // Último dia do mês no fuso local
+
+    console.log('Filtrando entradas para:', {
+      selectedMonth,
+      monthStart: monthStart.toLocaleString('pt-BR'),
+      monthEnd: monthEnd.toLocaleString('pt-BR'),
+      totalEntries: timeEntries.length
+    });
+
+    // Filtrar entradas do mês usando comparação de timestamps locais
+    const monthEntries = timeEntries.filter(entry => {
+      const entryDate = new Date(entry.timestamp);
+      const isInMonth = entryDate >= monthStart && entryDate <= monthEnd;
+      
+      if (isInMonth) {
+        console.log('Entrada incluída:', {
+          timestamp: entryDate.toLocaleString('pt-BR'),
+          type: entry.type
+        });
+      }
+      
+      return isInMonth;
+    });
+
+    // Agrupar por data local
+    const entriesByDate = new Map<string, TimeEntry[]>();
+    
+    monthEntries.forEach(entry => {
+      // Usar data local para agrupamento
+      const localDate = new Date(entry.timestamp);
+      const dateKey = format(localDate, 'yyyy-MM-dd'); // Formato local
+      
+      if (!entriesByDate.has(dateKey)) {
+        entriesByDate.set(dateKey, []);
+      }
+      entriesByDate.get(dateKey)!.push(entry);
+    });
+
+    // Converter para array de DayEntry
+    const dayEntries: DayEntry[] = Array.from(entriesByDate.entries()).map(([dateStr, entries]) => {
+      const date = new Date(dateStr + 'T00:00:00'); // Data local sem conversão de fuso
+      const sortedEntries = entries.sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      const { totalHours, extraHours, status } = calculateDayStats(sortedEntries);
+
+      return {
+        date,
+        entries: sortedEntries,
+        totalHours,
+        extraHours,
+        status
+      };
+    });
+
+    // Ordenar por data (mais recente primeiro)
+    dayEntries.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    console.log('Entradas filtradas:', dayEntries.map(d => ({
+      date: format(d.date, 'dd/MM/yyyy'),
+      entries: d.entries.length,
+      status: d.status
+    })));
+
+    setFilteredEntries(dayEntries);
+  };
+
+  const calculateDayStats = (entries: TimeEntry[]) => {
+    if (entries.length === 0) {
+      return { totalHours: 0, extraHours: 0, status: 'missing' as const };
+    }
+
+    // Calcular horas trabalhadas considerando entrada, saída e intervalos
+    let totalMinutes = 0;
+    let entryTime: Date | null = null;
+    let breakStartTime: Date | null = null;
+    let isComplete = false;
+
+    entries.forEach(entry => {
+      const entryDate = new Date(entry.timestamp);
+      
+      switch (entry.type) {
+        case 'entry':
+          entryTime = entryDate;
+          break;
+        case 'break_start':
+          if (entryTime) {
+            totalMinutes += (entryDate.getTime() - entryTime.getTime()) / 60000;
+          }
+          breakStartTime = entryDate;
+          break;
+        case 'break_end':
+          entryTime = entryDate; // Reinicia contagem após o intervalo
+          break;
+        case 'exit':
+          if (entryTime) {
+            totalMinutes += (entryDate.getTime() - entryTime.getTime()) / 60000;
+            isComplete = true;
+          }
+          break;
+      }
+    });
+
+    const totalHours = totalMinutes / 60;
+    const extraHours = Math.max(0, totalHours - 9); // Jornada de 9h
+    const status = isComplete ? 'complete' : 'incomplete';
+
+    return { totalHours, extraHours, status };
+  };
 
   const getStatusBadge = (status: string) => {
-    const colors = {
-      complete: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-      incomplete: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-      absent: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-    };
+    switch (status) {
+      case 'complete':
+        return <Badge variant="secondary" className="bg-green-100 text-green-800">Completo</Badge>;
+      case 'incomplete':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Incompleto</Badge>;
+      case 'missing':
+        return <Badge variant="secondary" className="bg-red-100 text-red-800">Ausente</Badge>;
+      default:
+        return <Badge variant="outline">-</Badge>;
+    }
+  };
 
+  const getActionLabel = (action: string) => {
     const labels = {
-      complete: 'Completo',
-      incomplete: 'Incompleto',
-      absent: 'Ausente'
+      entry: 'Entrada',
+      exit: 'Saída',
+      break_start: 'Saída Almoço',
+      break_end: 'Volta Almoço'
     };
-
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status as keyof typeof colors]}`}>
-        {labels[status as keyof typeof labels]}
-      </span>
-    );
+    return labels[action as keyof typeof labels] || action;
   };
 
-  const handleExportExcel = () => {
-    // Create formatted data for Excel export
-    const data = timeEntries.map(entry => ({
-      'Data': new Date(entry.date).toLocaleDateString('pt-BR'),
-      'Entrada': entry.entries.entry || '-',
-      'Saída Almoço': entry.entries.breakStart || '-',
-      'Volta Almoço': entry.entries.breakEnd || '-',
-      'Saída': entry.entries.exit || '-',
-      'Horas Trabalhadas': entry.workedHours,
-      'Horas Extras': entry.overtime,
-      'Status': entry.status === 'complete' ? 'Completo' : entry.status === 'incomplete' ? 'Incompleto' : 'Ausente',
-      'Localização': entry.locationName || entry.location || '-'
-    }));
-
-    // Add summary row
-    data.push({
-      'Data': 'TOTAL',
-      'Entrada': '',
-      'Saída Almoço': '',
-      'Volta Almoço': '',
-      'Saída': '',
-      'Horas Trabalhadas': totals.totalWorked,
-      'Horas Extras': totals.totalOvertime,
-      'Status': `${totals.workingDays} dias trabalhados`,
-      'Localização': `${totals.absences} faltas`
-    });
-
-    const ws = XLSX.utils.json_to_sheet(data);
+  // Gerar lista de meses para o select (últimos 12 meses)
+  const generateMonthOptions = () => {
+    const options = [];
+    const now = new Date();
     
-    // Set column widths
-    const colWidths = [
-      { wch: 12 }, // Data
-      { wch: 10 }, // Entrada
-      { wch: 12 }, // Saída Almoço
-      { wch: 12 }, // Volta Almoço
-      { wch: 10 }, // Saída
-      { wch: 15 }, // Horas Trabalhadas
-      { wch: 12 }, // Horas Extras
-      { wch: 12 }, // Status
-      { wch: 25 }  // Localização
-    ];
-    ws['!cols'] = colWidths;
-
-    // Style the header row
-    const range = XLSX.utils.decode_range(ws['!ref']!);
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const address = XLSX.utils.encode_cell({ r: 0, c: C });
-      if (!ws[address]) continue;
-      ws[address].s = {
-        font: { bold: true },
-        fill: { fgColor: { rgb: "EFEFEF" } },
-        border: {
-          top: { style: "thin" },
-          bottom: { style: "thin" },
-          left: { style: "thin" },
-          right: { style: "thin" }
-        }
-      };
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = format(date, 'yyyy-MM');
+      const label = format(date, 'MMMM \'de\' yyyy', { locale: ptBR });
+      options.push({ value, label });
     }
-
-    // Style the total row
-    const totalRowIndex = data.length - 1;
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const address = XLSX.utils.encode_cell({ r: totalRowIndex + 1, c: C });
-      if (!ws[address]) continue;
-      ws[address].s = {
-        font: { bold: true },
-        fill: { fgColor: { rgb: "D4EDDA" } },
-        border: {
-          top: { style: "thick" },
-          bottom: { style: "thick" },
-          left: { style: "thin" },
-          right: { style: "thin" }
-        }
-      };
-    }
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Espelho de Ponto");
     
-    // Add metadata
-    wb.Props = {
-      Title: "Espelho de Ponto",
-      Subject: "Registro de Ponto",
-      Author: user?.name || "Sistema",
-      CreatedDate: new Date()
-    };
-    
-    const fileName = `espelho-ponto-${selectedMonth}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    
-    toast({
-      title: "Arquivo exportado!",
-      description: `O espelho de ponto foi exportado como "${fileName}" com formatação completa.`,
-    });
-  };
-
-  const handleExportPDF = () => {
-    // For PDF export, we'll use the browser's print functionality
-    window.print();
-    
-    toast({
-      title: "Exportando PDF...",
-      description: "Use a função de impressão do navegador para salvar como PDF.",
-    });
+    return options;
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Espelho de Ponto</h2>
-          <p className="text-muted-foreground">
-            Visualize e exporte o registro detalhado de ponto (Sincronização em tempo real)
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={captureScreen} variant="outline">
-            <Monitor className="mr-2 h-4 w-4" />
-            Capturar Tela
-          </Button>
-          <Button onClick={handleExportExcel} variant="outline">
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel
-          </Button>
-          <Button onClick={handleExportPDF}>
-            <Download className="mr-2 h-4 w-4" />
-            PDF
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Trabalhado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalWorked}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Horas Extras</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalOvertime}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Dias Trabalhados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.workingDays}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Faltas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.absences}</div>
-          </CardContent>
-        </Card>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
           <CardDescription>
             Selecione o período e funcionário para visualizar
           </CardDescription>
-          <div className="flex gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="month">Mês/Ano</Label>
-              <Input
-                id="month"
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-              />
-            </div>
-            {user?.role === 'admin' && (
-              <div className="space-y-2">
-                <Label htmlFor="employee">Funcionário</Label>
-                <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Selecione funcionário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os funcionários</SelectItem>
-                    <SelectItem value="1">João Silva</SelectItem>
-                    <SelectItem value="2">Maria Santos</SelectItem>
-                    <SelectItem value="3">Carlos Oliveira</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Entrada</TableHead>
-                <TableHead>Saída Almoço</TableHead>
-                <TableHead>Volta Almoço</TableHead>
-                <TableHead>Saída</TableHead>
-                <TableHead>Horas Trabalhadas</TableHead>
-                <TableHead>Horas Extras</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Localização</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {timeEntries.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="font-medium">
-                    {new Date(entry.date).toLocaleDateString('pt-BR', { 
-                      weekday: 'short', 
-                      day: '2-digit', 
-                      month: '2-digit' 
-                    })}
-                  </TableCell>
-                  <TableCell>{entry.entries.entry || '-'}</TableCell>
-                  <TableCell>{entry.entries.breakStart || '-'}</TableCell>
-                  <TableCell>{entry.entries.breakEnd || '-'}</TableCell>
-                  <TableCell>{entry.entries.exit || '-'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {entry.workedHours}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium text-orange-600">
-                    {entry.overtime}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(entry.status)}</TableCell>
-                  <TableCell>
-                    {entry.locationName && (
-                      <Button size="sm" variant="outline">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {entry.locationName.substring(0, 20)}...
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {timeEntries.length === 0 && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="month">Mês/Ano</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {generateMonthOptions().map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="employee">Funcionário</Label>
+              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione funcionário" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os funcionários</SelectItem>
+                  <SelectItem value="current">Usuário atual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Espelho de Ponto</CardTitle>
+          <CardDescription>
+            Registros de ponto do período selecionado
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
-                    Nenhum registro encontrado. Faça seu primeiro registro de ponto!
-                  </TableCell>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Entrada</TableHead>
+                  <TableHead>Saída Almoço</TableHead>
+                  <TableHead>Volta Almoço</TableHead>
+                  <TableHead>Saída</TableHead>
+                  <TableHead>Horas Trabalhadas</TableHead>
+                  <TableHead>Horas Extras</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Localização</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredEntries.map((dayEntry) => {
+                  const entryTimes = {
+                    entry: dayEntry.entries.find(e => e.type === 'entry'),
+                    break_start: dayEntry.entries.find(e => e.type === 'break_start'),
+                    break_end: dayEntry.entries.find(e => e.type === 'break_end'),
+                    exit: dayEntry.entries.find(e => e.type === 'exit')
+                  };
+
+                  return (
+                    <TableRow key={format(dayEntry.date, 'yyyy-MM-dd')}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">
+                              {format(dayEntry.date, "EEE'.,'")}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {format(dayEntry.date, 'dd/MM')}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {entryTimes.entry ? (
+                          <div className="text-sm">
+                            {format(new Date(entryTimes.entry.timestamp), 'HH:mm')}
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {entryTimes.break_start ? (
+                          <div className="text-sm">
+                            {format(new Date(entryTimes.break_start.timestamp), 'HH:mm')}
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {entryTimes.break_end ? (
+                          <div className="text-sm">
+                            {format(new Date(entryTimes.break_end.timestamp), 'HH:mm')}
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {entryTimes.exit ? (
+                          <div className="text-sm">
+                            {format(new Date(entryTimes.exit.timestamp), 'HH:mm')}
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          <span className="text-sm">
+                            {dayEntry.totalHours > 0 ? `${dayEntry.totalHours.toFixed(1)}h` : '0h 00m'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {dayEntry.extraHours > 0 ? (
+                          <span className="text-sm font-medium text-orange-600">
+                            {dayEntry.extraHours.toFixed(1)}h
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">0h 00m</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(dayEntry.status)}
+                      </TableCell>
+                      <TableCell>
+                        {entryTimes.entry?.locationName ? (
+                          <div className="flex items-center gap-2 max-w-xs">
+                            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs truncate">
+                              {entryTimes.entry.locationName}
+                            </span>
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {filteredEntries.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                      Nenhum registro encontrado para o período selecionado.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

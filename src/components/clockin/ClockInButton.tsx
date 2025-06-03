@@ -173,10 +173,12 @@ export const ClockInButton: React.FC = () => {
 
   const handleClockIn = () => {
     const action = getNextAction();
+    const now = new Date(); // Data/hora atual local
+    
     const newEntry: TimeEntry = {
-      id: Date.now().toString(),
+      id: now.getTime().toString(), // Use timestamp como ID único
       type: action as any,
-      timestamp: new Date(),
+      timestamp: now, // Salva como objeto Date local
       location,
       locationName,
       accuracy: locationAccuracy,
@@ -186,14 +188,31 @@ export const ClockInButton: React.FC = () => {
 
     setLastEntry(newEntry);
 
-    // Store in localStorage for offline sync and real-time sync
+    // Store in localStorage - converter para string ISO mas manter referência local
     const allEntries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
-    allEntries.push(newEntry);
+    
+    // Salvar com timestamp em formato que preserve o fuso horário local
+    const entryToStore = {
+      ...newEntry,
+      timestamp: now.toISOString(), // ISO string preserva o momento exato
+      localTimestamp: now.getTime(), // Timestamp local para referência
+      timezoneOffset: now.getTimezoneOffset() // Offset do fuso horário
+    };
+    
+    allEntries.push(entryToStore);
     localStorage.setItem('timeEntries', JSON.stringify(allEntries));
+
+    console.log('Ponto registrado com data local:', {
+      timestamp: now.toLocaleString('pt-BR'),
+      isoString: now.toISOString(),
+      localTimestamp: now.getTime(),
+      timezoneOffset: now.getTimezoneOffset(),
+      type: newEntry.type
+    });
 
     if (!isOnline) {
       const offlineEntries = JSON.parse(localStorage.getItem('offlineEntries') || '[]');
-      offlineEntries.push(newEntry);
+      offlineEntries.push(entryToStore);
       localStorage.setItem('offlineEntries', JSON.stringify(offlineEntries));
     }
 
@@ -202,7 +221,7 @@ export const ClockInButton: React.FC = () => {
     
     toast({
       title: "Ponto registrado!",
-      description: `${getActionLabel(newEntry.type)} registrada às ${format(newEntry.timestamp, 'HH:mm:ss')}${accuracyText}${!isOnline ? ' (será sincronizado quando online)' : ''}`,
+      description: `${getActionLabel(newEntry.type)} registrada às ${format(newEntry.timestamp, 'HH:mm:ss')} do dia ${format(newEntry.timestamp, 'dd/MM/yyyy')}${accuracyText}${!isOnline ? ' (será sincronizado quando online)' : ''}`,
     });
 
     console.log('Ponto registrado:', newEntry);
