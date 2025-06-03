@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -47,16 +46,15 @@ export const TimesheetView: React.FC = () => {
     const entries = JSON.parse(localStorage.getItem('timeEntries') || '[]');
     const parsedEntries: TimeEntry[] = entries.map((entry: any) => ({
       ...entry,
-      timestamp: new Date(entry.timestamp) // Garante que seja um objeto Date local
+      timestamp: new Date(entry.timestamp)
     }));
     setTimeEntries(parsedEntries);
   };
 
   const filterEntries = () => {
-    // Criar data base para o mês selecionado no fuso horário local
     const [year, month] = selectedMonth.split('-').map(Number);
-    const monthStart = new Date(year, month - 1, 1); // Mês no fuso local
-    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999); // Último dia do mês no fuso local
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
     console.log('Filtrando entradas para:', {
       selectedMonth,
@@ -65,7 +63,6 @@ export const TimesheetView: React.FC = () => {
       totalEntries: timeEntries.length
     });
 
-    // Filtrar entradas do mês usando comparação de timestamps locais
     const monthEntries = timeEntries.filter(entry => {
       const entryDate = new Date(entry.timestamp);
       const isInMonth = entryDate >= monthStart && entryDate <= monthEnd;
@@ -80,13 +77,11 @@ export const TimesheetView: React.FC = () => {
       return isInMonth;
     });
 
-    // Agrupar por data local
     const entriesByDate = new Map<string, TimeEntry[]>();
     
     monthEntries.forEach(entry => {
-      // Usar data local para agrupamento
       const localDate = new Date(entry.timestamp);
-      const dateKey = format(localDate, 'yyyy-MM-dd'); // Formato local
+      const dateKey = format(localDate, 'yyyy-MM-dd');
       
       if (!entriesByDate.has(dateKey)) {
         entriesByDate.set(dateKey, []);
@@ -94,9 +89,8 @@ export const TimesheetView: React.FC = () => {
       entriesByDate.get(dateKey)!.push(entry);
     });
 
-    // Converter para array de DayEntry
     const dayEntries: DayEntry[] = Array.from(entriesByDate.entries()).map(([dateStr, entries]) => {
-      const date = new Date(dateStr + 'T00:00:00'); // Data local sem conversão de fuso
+      const date = new Date(dateStr + 'T00:00:00');
       const sortedEntries = entries.sort((a, b) => 
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
@@ -112,7 +106,6 @@ export const TimesheetView: React.FC = () => {
       };
     });
 
-    // Ordenar por data (mais recente primeiro)
     dayEntries.sort((a, b) => b.date.getTime() - a.date.getTime());
 
     console.log('Entradas filtradas:', dayEntries.map(d => ({
@@ -124,12 +117,11 @@ export const TimesheetView: React.FC = () => {
     setFilteredEntries(dayEntries);
   };
 
-  const calculateDayStats = (entries: TimeEntry[]) => {
+  const calculateDayStats = (entries: TimeEntry[]): { totalHours: number; extraHours: number; status: 'complete' | 'incomplete' | 'missing' } => {
     if (entries.length === 0) {
-      return { totalHours: 0, extraHours: 0, status: 'missing' as const };
+      return { totalHours: 0, extraHours: 0, status: 'missing' };
     }
 
-    // Calcular horas trabalhadas considerando entrada, saída e intervalos
     let totalMinutes = 0;
     let entryTime: Date | null = null;
     let breakStartTime: Date | null = null;
@@ -149,7 +141,7 @@ export const TimesheetView: React.FC = () => {
           breakStartTime = entryDate;
           break;
         case 'break_end':
-          entryTime = entryDate; // Reinicia contagem após o intervalo
+          entryTime = entryDate;
           break;
         case 'exit':
           if (entryTime) {
@@ -161,8 +153,8 @@ export const TimesheetView: React.FC = () => {
     });
 
     const totalHours = totalMinutes / 60;
-    const extraHours = Math.max(0, totalHours - 9); // Jornada de 9h
-    const status = isComplete ? 'complete' : 'incomplete';
+    const extraHours = Math.max(0, totalHours - 9);
+    const status: 'complete' | 'incomplete' | 'missing' = isComplete ? 'complete' : 'incomplete';
 
     return { totalHours, extraHours, status };
   };
@@ -190,7 +182,6 @@ export const TimesheetView: React.FC = () => {
     return labels[action as keyof typeof labels] || action;
   };
 
-  // Gerar lista de meses para o select (últimos 12 meses)
   const generateMonthOptions = () => {
     const options = [];
     const now = new Date();
